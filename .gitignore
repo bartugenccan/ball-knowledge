@@ -3,7 +3,7 @@ engine/.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
-web/node_modules/
+node_modules/
 web/.next/
 web/next-env.d.ts
 *.tmp

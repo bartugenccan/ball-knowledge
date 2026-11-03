@@ -5,10 +5,35 @@ EuroLeague oyuncuları için 1–20 ölçeğinde özellik puanları, maç ve ayl
 ```
 engine/   Python: veri çekme, tablolar, puanlama, simülatör, FastAPI
 web/      Next.js 16: arayüz (oyuncular, takımlar, karşılaştırma, koç paneli, yöntem)
+scripts/  npm run dev için kurulum kontrolü ve başlatma yardımcıları
 data/     raw/ (ham JSON önbelleği) ve tables/ (Parquet), git'e girmez
 ```
 
 ## Çalıştırma
+
+Gerekenler: [uv](https://docs.astral.sh/uv/) (Python 3.13'ü kendisi kurar) ve Node.js 20+.
+
+### Hızlı başlangıç: hazır tablolarla
+
+Veri repoda yok. Hazır `data/tables` klasörü (~8 MB) ayrıca paylaşılır.
+
+1. Klasörü repo köküne koyun. Doğru yerdeyse `data/tables/ratings_season.parquet` ve `data/tables/sim_calibration.json` dosyaları bulunur (`engine/` ve `web/` ile aynı seviyede bir `data/` klasörü).
+2. Repo kökünde tek komut:
+
+   ```bash
+   npm run dev
+   ```
+
+   İlk çalıştırmada eksik bağımlılıkları kendisi kurar (npm paketleri ve Python ortamı, yaklaşık 1 dakika). Sonra API'yi ve web'i aynı terminalde başlatır. `git pull` sonrası bağımlılıklar değiştiyse yeniden kurar. Durdurmak için Ctrl+C.
+
+   - Site: http://localhost:3000
+   - API dokümanı: http://127.0.0.1:8000/docs
+
+Ayrı terminallerde çalıştırmak isterseniz: `cd engine && uv run uvicorn bk.api.app:app --port 8000 --reload` ve `cd web && npm run dev`.
+
+Bu yolla API, web, puan formülleri ve simülatör üzerinde çalışılabilir. Ham veri yalnızca tabloları yeniden üretmek için gerekir; bu, örneğin parse mantığı değiştiğinde olur.
+
+### Veriyi baştan üretmek
 
 ```bash
 cd engine
