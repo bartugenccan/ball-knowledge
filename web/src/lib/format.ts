@@ -1,0 +1,102 @@
+import type { Group, Rating, Source } from "./types";
+
+export const GROUP_LABEL: Record<Group, string> = {
+  hucum: "Hücum",
+  savunma: "Savunma",
+  zihinsel: "Zihinsel & Fiziksel",
+};
+
+export const SOURCE_LABEL: Record<Source, string> = {
+  veri: "Veriden",
+  turetilmis: "Türetilmiş",
+  tahmini: "Tahmini",
+};
+
+export const SOURCE_HINT: Record<Source, string> = {
+  veri: "Doğrudan maç istatistiklerinden hesaplanır.",
+  turetilmis: "Play-by-play'den türetilir (beşliler, stint, skor durumu).",
+  tahmini: "Açık veride doğrudan yok; sahadaki beşli verisinden dolaylı tahmin.",
+};
+
+/** Tone bucket for a 1–20 attribute. Use as r-*, chip-r-*, fill-r-* class suffix. */
+export function tone(v: number): string {
+  if (v >= 17) return "r-elite";
+  if (v >= 14) return "r-good";
+  if (v >= 10) return "r-avg";
+  if (v >= 6) return "r-low";
+  return "r-poor";
+}
+
+/** Tone bucket for a 1–10 match rating. */
+export function gameTone(v: number): string {
+  if (v >= 8) return "r-elite";
+  if (v >= 7) return "r-good";
+  if (v >= 6) return "r-avg";
+  if (v >= 5) return "r-low";
+  return "r-poor";
+}
+
+/** Radar axes: each is the mean of a few attributes. */
+export const RADAR_AXES: { label: string; keys: string[] }[] = [
+  { label: "Bitiricilik", keys: ["finishing", "drawing_fouls"] },
+  { label: "Dış şut", keys: ["three_point", "corner_three", "mid_range", "free_throw"] },
+  { label: "Oyun kurma", keys: ["passing", "ball_security", "shot_creation"] },
+  { label: "Ribaund", keys: ["off_rebounding", "def_rebounding"] },
+  { label: "Savunma", keys: ["steals", "shot_blocking", "rim_protection", "perimeter_defense", "team_defense", "discipline"] },
+  { label: "Zihinsel", keys: ["clutch", "stamina", "consistency"] },
+];
+
+export function radarValues(ratings: Rating[]): { label: string; value: number }[] {
+  const by = new Map(ratings.map((r) => [r.key, r.value]));
+  return RADAR_AXES.map((a) => {
+    const vals = a.keys.map((k) => by.get(k)).filter((v): v is number => v !== undefined);
+    return { label: a.label, value: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 10 };
+  });
+}
+
+/** Headline number: mean of the radar axes, so no single group dominates. */
+export function overall(ratings: Rating[]): number {
+  const axes = radarValues(ratings);
+  return Math.round(axes.reduce((s, a) => s + a.value, 0) / axes.length);
+}
+
+// Player names are mostly non-Turkish: locale-free casing keeps "MILLER" -> "Miller", not "Mıller".
+const cap = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/(^|[\s'-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase())
+    .replace(/\b(Ii|Iii|Iv)\b/g, (r) => r.toUpperCase()); // "Clark Iii" -> "Clark III"
+
+/** Feed names are "LAST, FIRST" in capitals. */
+export function nameParts(raw: string): { first: string; last: string } {
+  const [last, first] = raw.split(",").map((s) => s.trim());
+  return { first: first ? cap(first) : "", last: cap(last) };
+}
+
+export function properName(raw: string): string {
+  const { first, last } = nameParts(raw);
+  return first ? `${first} ${last}` : last;
+}
+
+export const pct = (v: number, digits = 1) => `${(100 * v).toFixed(digits)}%`;
+
+export function seasonLabel(code: string): string {
+  const y = Number(code.slice(1));
+  return Number.isFinite(y) ? `${y}-${String(y + 1).slice(2)}` : code;
+}
+
+const MONTHS = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+export function monthLabel(m: string): string {
+  const [y, mm] = m.split("-");
+  return `${MONTHS[Number(mm) - 1]} ${y}`;
+}
+
+export const ZONE_LABEL: Record<string, string> = {
+  rim: "Pota altı",
+  paint: "Boyalı alan",
+  mid: "Orta mesafe",
+  corner3: "Köşe üçlük",
+  above_break3: "Üçlük",
+  three: "Üçlük (tümü)",
+  ft: "Serbest atış",
+};
