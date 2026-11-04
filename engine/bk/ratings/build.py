@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from bk.config import TABLES_DIR
+from bk.ratings.attributes import Attribute
 from bk.ratings.catalog import PRIOR_K, RATING_ATTRIBUTES
 from bk.ratings.defense import add_defense_metrics, add_defense_months, on_off_card, possession_table
 from bk.ratings.mental import add_mental_metrics, add_mental_months, game_rating_v2
@@ -22,6 +23,8 @@ META_COLS = ["player", "team", "games", "minutes", "mpg"]
 FLAG_COLS = ["three_non_shooter", "mid_non_shooter"]
 QUALIFIED_MINUTES_SHARE = 0.15  # of the season's largest minute load, for default player lists
 SIM_PCT_RANGE = (0.05, 0.95)
+# For the simulator only: a turnover chance per action should not fall because a player has the ball often.
+BALL_CARE = Attribute("ball_care", "", "hucum", "veri", (("tov_share", 1, -1),))
 
 
 def confidence(m: pd.DataFrame) -> pd.DataFrame:
@@ -68,6 +71,7 @@ def score_rows(m: pd.DataFrame, reference: pd.DataFrame, prior_k: dict[str, floa
     for season, g in m.groupby("season", sort=False):
         g = g.set_index("player_id")
         scored = score_fixed(g, reference, RATING_ATTRIBUTES, prior_k).join(confidence(g))
+        scored["ball_care"] = score_fixed(g, reference, (BALL_CARE,), {})["ball_care"]
         frames.append(scored.reset_index().assign(season=season))
     return pd.concat(frames, ignore_index=True)
 

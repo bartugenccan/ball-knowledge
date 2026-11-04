@@ -53,7 +53,8 @@ def test_simulate_rejects_missing_slots(client):
 
 def test_non_numeric_attributes_show_their_label(client):
     ps = client.get("/api/players", params={"limit": 400}).json()["players"]
-    assert all(p["labels"]["mid_range"] in {"Düşük", "Orta", "Yüksek"} for p in ps)
+    assert all(p["labels"]["mid_range"] in {"Düşük", "Orta", "Yüksek", "Orta mesafe kullanmıyor"} for p in ps)
+    assert any(p["labels"]["mid_range"] == "Orta mesafe kullanmıyor" for p in ps)
     assert all(p["labels"]["perimeter_defense"] in {"Düşük", "Orta", "Yüksek"} for p in ps)
     assert all(str(p["three_point"]) != p["labels"].get("three_point") for p in ps)
 
@@ -63,3 +64,11 @@ def test_leader_lists_leave_out_low_data_and_non_shooters(client):
     leaders = client.get("/api/players", params={"sort": "three_point", "rated_only": True, "limit": 400}).json()["players"]
     assert 0 < len(leaders) < len(everyone)
     assert all("three_point" not in p["labels"] for p in leaders)
+
+
+def test_leader_lists_leave_out_very_small_roles_but_ratings_stay(client):
+    everyone = client.get("/api/players", params={"sort": "steals", "limit": 400, "season": "E2025"}).json()["players"]
+    leaders = client.get("/api/players", params={"sort": "steals", "rated_only": True, "limit": 400, "season": "E2025"}).json()["players"]
+    assert all(p["mpg"] >= 10 for p in leaders)
+    small_role = [p for p in everyone if p["mpg"] < 10]
+    assert small_role and all(1 <= p["steals"] <= 20 for p in small_role)

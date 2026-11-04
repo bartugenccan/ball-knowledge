@@ -46,6 +46,14 @@ def league_average(season: str) -> Player:
     return Player.average(pct=_pct(mean))
 
 
+def sim_ratings(row: pd.Series, attributes=RATING_ATTRIBUTES) -> dict[str, int]:
+    """Ratings as the simulator reads them: ball security means care with the ball, not how often he has it."""
+    ratings = {a.key: int(row[a.key]) for a in attributes if a.key in row}
+    if "ball_care" in row:
+        ratings["ball_security"] = int(row["ball_care"])
+    return ratings
+
+
 def load_player(season: str, player_id: str) -> Player:
     r, m = _tables()
     key = (season, player_id)
@@ -53,4 +61,4 @@ def load_player(season: str, player_id: str) -> Player:
         raise KeyError(f"no ratings for {player_id} in {season}")
     row, met = r.loc[key], m.loc[key]
     return Player(player_id=player_id, name=str(row["player"]).title(),
-                  ratings={a.key: int(row[a.key]) for a in RATING_ATTRIBUTES}, pct=_pct(met))
+                  ratings=sim_ratings(row), pct=_pct(met))

@@ -45,7 +45,7 @@ def loader(ratings: pd.DataFrame, metrics: pd.DataFrame, attributes):
     def load(pid: str) -> Player:
         row, met = r.loc[(SEASON, pid)], m.loc[(SEASON, pid)]
         pct = {k: float(met[c]) if c in met else float(met[k]) for k, c in profiles.PCT_SOURCE.items()}
-        return Player(player_id=pid, name=pid, ratings={a.key: int(row[a.key]) for a in attributes if a.key in row}, pct=pct)
+        return Player(player_id=pid, name=pid, ratings=profiles.sim_ratings(row, attributes), pct=pct)
 
     return load
 

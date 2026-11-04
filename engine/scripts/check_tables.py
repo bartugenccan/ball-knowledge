@@ -22,6 +22,11 @@ MAX_OFFICIAL_DIFF_SIZE = 2
 MAX_NON_FIVE_LINEUPS = 2
 MIN_BLOCK_LINK_RATE = 0.99
 MIN_ROSTER_MINUTE_SHARE = 0.99
+LOW_VOLUME_MIN_MINUTES = 100
+LOW_VOLUME_INSIDE_FGA = 2.5  # per game
+LOW_VOLUME_MAX_FINISHING = 16
+LOW_TOUCHES_PER_GAME = 6
+LOW_TOUCHES_MAX_BALL_SECURITY = 16
 MINUTES_TOLERANCE = 1.0
 MAX_STINT_OFF_PLAYER_GAMES = 10
 
@@ -97,6 +102,20 @@ share = pg.merge(people, on=["season", "player_id"], how="left")
 minute_share = share[share.height.notna()].minutes.sum() / share.minutes.sum()
 check("height coverage", minute_share >= MIN_ROSTER_MINUTE_SHARE, f"{100 * minute_share:.1f}% of minutes")
 check("position coverage", share.position.notna().all())
+
+# ratings ---------------------------------------------------------------------
+ratings = pd.read_parquet(T / "ratings_season.parquet")
+inside = sh[sh.zone_group == "inside"].groupby(["season", "player_id"]).size().rename("inside_fga")
+low = ratings.join(inside, on=["season", "player_id"]).fillna({"inside_fga": 0})
+low = low[(low.minutes >= LOW_VOLUME_MIN_MINUTES) & (low.inside_fga / low.games <= LOW_VOLUME_INSIDE_FGA)]
+check("low-volume finishers stay out of the top", (low.finishing <= LOW_VOLUME_MAX_FINISHING).all(),
+      f"highest {int(low.finishing.max())} among {len(low)} player-seasons")
+touches = pg.groupby(["season", "player_id"])[["fg2a", "fg3a", "fta", "tov", "ast"]].sum()
+touches = (touches.fg2a + touches.fg3a + 0.44 * touches.fta + touches.tov + touches.ast).rename("touches")
+quiet = ratings.join(touches, on=["season", "player_id"]).fillna({"touches": 0})
+quiet = quiet[(quiet.minutes >= LOW_VOLUME_MIN_MINUTES) & (quiet.touches / quiet.games < LOW_TOUCHES_PER_GAME)]
+check("low-touch players stay out of the top of ball security", (quiet.ball_security <= LOW_TOUCHES_MAX_BALL_SECURITY).all(),
+      f"highest {int(quiet.ball_security.max())} among {len(quiet)} player-seasons")
 
 print(f"\n{len(failures)} failed" if failures else "\nall checks passed")
 sys.exit(1 if failures else 0)

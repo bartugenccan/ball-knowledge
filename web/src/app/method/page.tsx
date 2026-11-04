@@ -51,6 +51,11 @@ export default function MethodPage() {
             son sezon bu seçimin dışında bırakılarak kontrol edilir. Blok gibi beceriler çabuk ortaya çıkar (k = 40). Üçlük yüzdesi çok
             daha yavaş yerleşir (k = 400).
           </p>
+          <p>
+            Yüzde tek başına yetmez. Üçlük, Orta Mesafe ve Bitiricilik isabetle birlikte kullanım hacmini de sayar; Bitiricilik ayrıca
+            oyuncunun kendi yarattığı isabetlere bakar. Az şutla yüksek yüzde bu yüzden tepeye çıkmaz. Top Güvenliği de az top kaybını top
+            kullanımıyla birlikte değerlendirir: topa az dokunan oyuncu az kaybettiği için ödüllendirilmez.
+          </p>
         </section>
 
         <section id="olcek" className="scroll-target space-y-4">
@@ -63,7 +68,7 @@ export default function MethodPage() {
           <ScaleCurve />
           <p>
             Puanın yanındaki aralık, puanın büyük olasılıkla (%80) bulunduğu yeri gösterir. Oyuncunun kendi verisi tahminin dörtte birinden
-            azsa <strong>az veri</strong> yazar ve oyuncu liderlik listelerine girmez.
+            azsa <strong>az veri</strong> yazar ve oyuncu liderlik listelerine girmez. Maçta 10 dakikadan az oynayanlar da bu listelerde yer almaz, ama puanları kartlarında görünür.
           </p>
           <p>
             Aylık puan formu gösterir: o ayın verisi, oyuncunun o aydan önceki seviyesine doğru çekilir. <strong>Maç puanı</strong> (1-10) ayrı bir

@@ -25,6 +25,7 @@ app = FastAPI(title="Ball Knowledge API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 ATTR_KEYS = [a.key for a in RATING_ATTRIBUTES]
+LEADER_MIN_MPG = 10  # a good rate in a very small role does not make a league leader
 
 
 @lru_cache(maxsize=1)
@@ -54,7 +55,8 @@ def team_names(season: str) -> dict[str, str]:
 
 
 def _display(row, key: str) -> str:
-    return display_value(key, int(row[key]), bool(row.get("three_non_shooter", False)), int(row["games"]))
+    return display_value(key, int(row[key]), bool(row.get("three_non_shooter", False)), int(row["games"]),
+                         bool(row.get("mid_non_shooter", False)))
 
 
 def _ratings(row: pd.Series) -> list[dict]:
@@ -90,7 +92,7 @@ def meta():
 def players(season: str | None = None, team: str | None = None, q: str | None = None,
             sort: str = "minutes", qualified_only: bool = True, rated_only: bool = False,
             limit: int = Query(400, le=1000)):
-    """rated_only keeps players with enough data on the sort attribute, for leader lists."""
+    """rated_only is for leader lists: enough data on the sort attribute and a real role in the team."""
     season = season or latest_season()
     r = T()["ratings_season"]
     r = r[r.season == season]
@@ -103,9 +105,11 @@ def players(season: str | None = None, team: str | None = None, q: str | None = 
     if sort not in r.columns:
         raise HTTPException(400, f"unknown sort {sort}")
     if rated_only and sort in ATTR_KEYS:
-        r = r[~r[f"{sort}_low_data"]]
+        r = r[~r[f"{sort}_low_data"] & (r.mpg >= LEADER_MIN_MPG)]
         if sort == "three_point":
             r = r[~r.three_non_shooter]
+        if sort == "mid_range":
+            r = r[~r.mid_non_shooter]
     r = r.sort_values(sort, ascending=False).head(limit)
     names = team_names(season)
     cols = ["player_id", "player", "team", "games", "minutes", "mpg"] + ATTR_KEYS

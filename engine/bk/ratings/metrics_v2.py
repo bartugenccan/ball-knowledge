@@ -26,6 +26,7 @@ HEIGHT_CENTER = 200.0
 RELATIVE_METRICS = ("three_pct", "mid_pct", "inside_adj", "corner3_pct")  # also fed to the simulator
 NON_SHOOTER_ATTEMPTS = 30   # with past seasons, and
 NON_SHOOTER_RATE = 1.0      # attempts per 100 own possessions in this window
+MID_NON_SHOOTER_PER_GAME = 0.5
 FT_SKILL_PRIOR = 40.0       # free-throw skill used inside other priors
 
 
@@ -51,6 +52,8 @@ SPECS: dict[str, Spec] = {
     "orb_share": Spec("prop", 200, role=True, carry=1.0, dispersion=1.25),
     "drb_share": Spec("prop", 200, role=True, carry=0.5),
     "tov_share": Spec("prop", 200, role=True, carry=0.5),
+    # how much a player has the ball: no role prior, or a low-touch player's use gets pulled up
+    "usage_rate": Spec("rate", 40, carry=0.25, scale=100),
     "fd_rate": Spec("rate", 120, role=True, carry=0.25, scale=100, dispersion=1.5),
     "trip_rate": Spec("rate", 200, carry=0.25, scale=100, dispersion=1.5),
     "creation_rate": Spec("rate", 120, role=True, carry=0.5, scale=100, dispersion=2.8),
@@ -63,6 +66,11 @@ SPECS: dict[str, Spec] = {
     "mid_pct": Spec("prop", 300, role=True, ft_prior=True),
     "mid_rate": Spec("rate", 200, carry=0.25, scale=100),
     "inside_adj": Spec("prop", 150, role=True, carry=1.0),
+    # how much a player finishes, not how well: no role prior, or a big man's low volume gets pulled up
+    "inside_rate": Spec("rate", 30, carry=0.25, scale=100),
+    # the selection rule gives k=120, which lifts low-volume players to 17; k=80 keeps them at 16 or
+    # below and loses almost nothing (out-of-sample gain 68.4 against 68.5)
+    "inside_self_rate": Spec("rate", 80, carry=1.0, scale=100),
     "corner3_pct": Spec("prop", 8000, prior_from="three_pct"),
     "opp_three_pct": Spec("prop", 2000),  # defenders barely control this, hence the very strong prior
 }
@@ -86,8 +94,8 @@ ATTRIBUTES_V2: tuple[Attribute, ...] = (
               "Sahadayken takımının hücum ribaund fırsatlarından aldığı pay"),
     Attribute("def_rebounding", "Savunma Ribaundu", "savunma", "veri", (("drb_share", 1, 1),),
               "Sahadayken takımının savunma ribaund fırsatlarından aldığı pay"),
-    Attribute("ball_security", "Top Güvenliği", "hucum", "veri", (("tov_share", 1, -1),),
-              "Top kaybı / (şut + 0,44 serbest atış + top kaybı + asist)"),
+    Attribute("ball_security", "Top Güvenliği", "hucum", "turetilmis", (("tov_share", .5, -1), ("usage_rate", .5, 1)),
+              "Az top kaybı ve çok top kullanımı birlikte: top kaybı / top teması ve top teması / 100 hücum"),
     Attribute("drawing_fouls", "Faul Alma", "hucum", "turetilmis", (("fd_rate", .5, 1), ("trip_rate", .5, 1)),
               "Alınan faul ve serbest atış serisi / 100 hücum"),
     Attribute("shot_creation", "Şut Yaratma", "hucum", "turetilmis", (("creation_rate", 1, 1),),
@@ -98,8 +106,9 @@ ATTRIBUTES_V2: tuple[Attribute, ...] = (
               "Üçlük isabeti ve denemesi / 100 hücum; umut atışı hariç"),
     Attribute("mid_range", "Orta Mesafe", "hucum", "turetilmis", (("mid_pct", .8, 1), ("mid_rate", .2, 1)),
               "Orta mesafe isabeti ve denemesi / 100 hücum"),
-    Attribute("finishing", "Bitiricilik", "hucum", "turetilmis", (("inside_adj", 1, 1),),
-              "Pota ve boyalı alan isabeti, şut bağlamına göre düzeltilmiş"),
+    Attribute("finishing", "Bitiricilik", "hucum", "turetilmis",
+              (("inside_adj", .4, 1), ("inside_rate", .4, 1), ("inside_self_rate", .2, 1)),
+              "Pota ve boyalı alanda isabet, deneme sayısı ve asistsiz isabet / 100 hücum; az şutla yüksek yüzde tek başına yetmez"),
 )
 
 
@@ -164,7 +173,9 @@ def counts(t: Tables, team_rebounds_count: bool = False) -> dict[str, tuple[pd.S
     out["orb_share"] = (box.orb, _on_court(usable, "off_lineup"))
     out["drb_share"] = (box.drb, _on_court(usable, "def_lineup"))
 
-    out["tov_share"] = (box.tov, fga + FT_WEIGHT * box.fta + box.tov + box.ast)
+    touches = fga + FT_WEIGHT * box.fta + box.tov + box.ast
+    out["tov_share"] = (box.tov, touches)
+    out["usage_rate"] = (touches, off_poss)
 
     drawn = t.fouls[t.fouls.foul_kind.isin(DRAWN_KINDS) & (t.fouls.drawn_by != "")]
     out["fd_rate"] = (drawn.groupby("drawn_by").size().astype(float), off_poss)
@@ -201,7 +212,11 @@ def counts(t: Tables, team_rebounds_count: bool = False) -> dict[str, tuple[pd.S
     inside = s[s.zone_group == "inside"]
     made = inside.made.astype(float)
     adjusted = made - made.groupby(inside.context).transform("mean") + made.mean()
-    out["inside_adj"] = (adjusted.groupby(inside.player_id).sum(), inside.groupby("player_id").size().astype(float))
+    inside_attempts = inside.groupby("player_id").size().astype(float)
+    out["inside_adj"] = (adjusted.groupby(inside.player_id).sum(), inside_attempts)
+    out["inside_rate"] = (inside_attempts, off_poss)
+    self_made = inside[inside.made & ~inside.assisted & (inside.context != "putback")]
+    out["inside_self_rate"] = (self_made.groupby("player_id").size().astype(float), off_poss)
     return out
 
 
@@ -360,10 +375,11 @@ def season_metrics(t: Tables, specs: dict[str, Spec] = SPECS, reference_seasons=
             m[f"se_{metric}"] = spec.scale * se
             if metric in RELATIVE_METRICS:
                 m[f"rel_{metric}"] = relative[metric]
-        for shot, rate_metric, flag in (("three_pct", "three_rate", "three_non_shooter"), ("mid_pct", "mid_rate", "mid_non_shooter")):
-            s, n = ctx.counts[season][rate_metric]
-            raw_rate = 100 * s.reindex(m.index).fillna(0) / n.reindex(m.index).clip(lower=1).fillna(1)
-            m[flag] = (m[f"n_{shot}"] < NON_SHOOTER_ATTEMPTS) & (raw_rate < NON_SHOOTER_RATE)
+        s, n = ctx.counts[season]["three_rate"]
+        raw_rate = 100 * s.reindex(m.index).fillna(0) / n.reindex(m.index).clip(lower=1).fillna(1)
+        m["three_non_shooter"] = (m["n_three_pct"] < NON_SHOOTER_ATTEMPTS) & (raw_rate < NON_SHOOTER_RATE)
+        mid_attempts = ctx.counts[season]["mid_rate"][0].reindex(m.index).fillna(0)
+        m["mid_non_shooter"] = (m["n_mid_pct"] < NON_SHOOTER_ATTEMPTS) & (mid_attempts / m.games <= MID_NON_SHOOTER_PER_GAME)
         frames.append(m.reset_index())
     return pd.concat(frames, ignore_index=True)
 
@@ -420,12 +436,15 @@ def tier_label(rating: int) -> str:
     return "Düşük" if rating <= TIER_LOW_MAX else "Orta" if rating <= TIER_MEDIUM_MAX else "Yüksek"
 
 
-def display_value(attribute: str, rating: int, non_shooter: bool = False, games: int | None = None) -> str:
+def display_value(attribute: str, rating: int, non_shooter: bool = False, games: int | None = None,
+                  mid_non_shooter: bool = False) -> str:
     """What the card shows: a number, a tier, or a plain statement when there is nothing to rate."""
     if attribute == "consistency" and games is not None and games < CONSISTENCY_MIN_GAMES:
         return "Az veri"
     if attribute == "three_point" and non_shooter:
         return "Üçlük kullanmıyor"
+    if attribute == "mid_range" and mid_non_shooter:
+        return "Orta mesafe kullanmıyor"
     if attribute in TIER_ATTRIBUTES:
         return tier_label(rating)
     return str(rating)

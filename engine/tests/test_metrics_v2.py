@@ -250,6 +250,62 @@ def test_inside_shots_are_adjusted_for_context():
     assert s["a"] == pytest.approx(0.875 + 1.125)
 
 
+def test_inside_volume_counts_attempts_and_self_made_makes_only():
+    g = game()
+    g.shots = pd.DataFrame([
+        shot("h1", 2, True, H, A),                          # self-made: counts for both
+        shot("h1", 2, True, H, A, assisted="h2"),           # assisted: attempt only
+        shot("h1", 2, True, H, A, context="putback"),       # putback: attempt only
+        shot("h1", 2, False, H, A),                         # miss: attempt only
+        shot("h1", 2, True, H, A, group="mid"),             # outside the zone: neither
+        shot("h1", 3, True, H, A),                          # a three: neither
+    ])
+    c2 = counts(g)
+    assert rate(c2, "inside_rate", "h1") == (4, 4)          # h1 was on court for 4 offensive possessions
+    assert rate(c2, "inside_self_rate", "h1") == (1, 4)
+
+
+def test_usage_counts_touches_per_own_possession(c):
+    # h1: 4 shots + 0.44 * 4 free throws + 2 turnovers + 0 assists, over 4 offensive possessions
+    assert rate(c, "usage_rate", "h1") == (4 + 0.44 * 4 + 2, 4)
+    assert rate(c, "usage_rate", "h2") == (1 + 3, 4)  # one turnover and three assists
+
+
+def test_low_touch_player_cannot_reach_a_top_ball_security_rating():
+    from bk.ratings.method import score_fixed
+    from bk.ratings.metrics_v2 import ATTRIBUTES_V2
+
+    security = next(a for a in ATTRIBUTES_V2 if a.key == "ball_security")
+    rng = np.random.default_rng(6)
+    columns = {"tov_share": rng.normal(0.12, 0.03, 300), "usage_rate": rng.normal(25, 6, 300)}
+    extras = {f"{p}_{c}": np.full(300, v) for c in columns for p, v in (("n", 500.0), ("se", 0.01))}
+    reference = pd.DataFrame({**columns, **extras, "season": "E2024", "minutes": 1000.0})
+    quiet = pd.DataFrame({"tov_share": [0.05], "usage_rate": [12.0], **{f"{p}_{c}": [v] for c in columns for p, v in (("n", 500.0), ("se", 0.01))}})
+    busy = quiet.assign(usage_rate=38.0)
+    assert score_fixed(quiet, reference, (security,), {})["ball_security"].iloc[0] <= 16
+    assert score_fixed(busy, reference, (security,), {})["ball_security"].iloc[0] >= 18
+
+
+def test_low_volume_cannot_reach_a_top_finishing_rating_on_accuracy_alone():
+    """The case that prompted this: 58 of 60 at under two attempts a game must not rate at the top."""
+    from bk.ratings.metrics_v2 import ATTRIBUTES_V2
+    from bk.ratings.method import score_fixed
+
+    finishing = next(a for a in ATTRIBUTES_V2 if a.key == "finishing")
+    rng = np.random.default_rng(5)
+    reference = pd.DataFrame({
+        "season": "E2024", "minutes": 1000.0,
+        "inside_adj": rng.normal(0.6, 0.05, 300), "inside_rate": rng.normal(7, 2.5, 300),
+        "inside_self_rate": rng.normal(1.5, 0.7, 300),
+        **{f"{c}_{m}": v for m in ("adj", "rate", "self_rate") for c, v in (("n_inside", np.full(300, 500.0)), ("se_inside", np.full(300, 0.01)))},
+    })
+    columns = {"inside_adj": [0.80], "inside_rate": [3.0], "inside_self_rate": [0.2], "minutes": [500.0]}
+    extras = {f"{c}_{m}": [v] for m in ("adj", "rate", "self_rate") for c, v in (("n_inside", 500.0), ("se_inside", 0.01))}
+    low_volume = pd.DataFrame({**columns, **extras})
+    rating = score_fixed(low_volume, reference, (finishing,), {})["finishing"].iloc[0]
+    assert rating <= 16
+
+
 def test_fit_role_with_free_throw_skill_finds_good_shooters():
     pe = people_frame()
     n = pd.Series(300.0, index=pe.player_id)
@@ -282,6 +338,7 @@ def test_display_value_uses_number_tier_or_statement():
     assert display_value("three_point", 14) == "14"
     assert display_value("three_point", 14, non_shooter=True) == "Üçlük kullanmıyor"
     assert display_value("mid_range", 15) == "Yüksek"
+    assert display_value("mid_range", 15, mid_non_shooter=True) == "Orta mesafe kullanmıyor"
     assert display_value("finishing", 15) == "15"
     assert display_value("perimeter_defense", 15) == "Yüksek"
     assert display_value("team_defense", 15) == "15"

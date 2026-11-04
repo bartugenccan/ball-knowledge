@@ -65,6 +65,8 @@ uv run python scripts/audit/stage5.py      # savunma modelleri, eski puanlarla y
 uv run python scripts/audit/stage6.py      # clutch, oyun yükü, istikrar, maç puanı (data/audit/stage6.md)
 uv run python scripts/audit/final_check.py # parametre seçiminde kullanılmayan sezonla son kontrol (data/audit/final_check.md)
 uv run python scripts/audit/sim_compare.py # simülatör: eski ve yeni puanlar (data/audit/sim_compare.md)
+uv run python scripts/audit/finishing_volume.py # Bitiricilik: hacim ve kendi yaratılan isabet (data/audit/finishing_volume.md)
+uv run python scripts/audit/position_cards.py # mevki kartları: ham istatistik ve puan karşılaştırması (data/audit/position_cards.md)
 uv run python -m bk.ratings.legacy_build   # denetim karşılaştırmaları için eski yöntemin tabloları (*_v1); ürün bunları okumaz
 uv run python scripts/backtest.py E2025  # küçük örneklem düzeltmesi tahmin gücü
 ```

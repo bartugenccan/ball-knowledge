@@ -51,6 +51,16 @@ def test_invalid_set_rejected():
         sim(bad)
 
 
+def test_simulator_reads_care_with_the_ball_not_usage():
+    import pandas as pd
+
+    from bk.sim.profiles import sim_ratings
+
+    row = pd.Series({"ball_security": 18, "ball_care": 6, "passing": 12})
+    ratings = sim_ratings(row)
+    assert ratings["ball_security"] == 6 and ratings["passing"] == 12
+
+
 def test_second_chance_points_count_free_throws_until_the_ball_changes_hands():
     import pandas as pd
 
