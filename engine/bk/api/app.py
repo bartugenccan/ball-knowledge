@@ -14,8 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from bk.config import TABLES_DIR
-from bk.ratings.attributes import ATTR_BY_KEY, ATTRIBUTES
-from bk.ratings.metrics import game_score
+from bk.ratings.catalog import ATTR_BY_KEY, RATING_ATTRIBUTES, display_kind
+from bk.ratings.metrics_v2 import display_value
 from bk.sim import profiles
 from bk.sim.engine import Context, SetSimulator
 from bk.sim.library import LIBRARY
@@ -24,7 +24,7 @@ from bk.sim.params import SimParams
 app = FastAPI(title="Ball Knowledge API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-ATTR_KEYS = [a.key for a in ATTRIBUTES]
+ATTR_KEYS = [a.key for a in RATING_ATTRIBUTES]
 
 
 @lru_cache(maxsize=1)
@@ -41,6 +41,10 @@ def latest_season() -> str:
     return str(T()["ratings_season"].season.max())
 
 
+def _round(value, digits: int) -> float | None:
+    return None if pd.isna(value) else round(float(value), digits)
+
+
 def team_names(season: str) -> dict[str, str]:
     g = T()["games"]
     g = g[g.season == season]
@@ -49,8 +53,18 @@ def team_names(season: str) -> dict[str, str]:
     return names
 
 
+def _display(row, key: str) -> str:
+    return display_value(key, int(row[key]), bool(row.get("three_non_shooter", False)), int(row["games"]))
+
+
 def _ratings(row: pd.Series) -> list[dict]:
-    return [{"key": k, "value": int(row[k]), "conf": float(row[f"{k}_conf"])} for k in ATTR_KEYS]
+    return [{"key": k, "value": int(row[k]), "lo": int(row[f"{k}_lo"]), "hi": int(row[f"{k}_hi"]),
+             "low_data": bool(row[f"{k}_low_data"]), "conf": float(row[f"{k}_conf"]), "display": _display(row, k)} for k in ATTR_KEYS]
+
+
+def _labels(row) -> dict[str, str]:
+    """Attributes that show something other than their number."""
+    return {k: _display(row, k) for k in ATTR_KEYS if _display(row, k) != str(int(row[k]))}
 
 
 # ---- meta -------------------------------------------------------------------------
@@ -66,7 +80,7 @@ def meta():
     return {
         "seasons": seasons, "latest": seasons[0], "league_ppp": league_ppp(),
         "attributes": [{"key": a.key, "label": a.label, "group": a.group, "source": a.source,
-                        "description": a.description} for a in ATTRIBUTES],
+                        "description": a.description, "display": display_kind(a.key)} for a in RATING_ATTRIBUTES],
         "sim_params": SimParams.load().to_dict(),
     }
 
@@ -74,7 +88,9 @@ def meta():
 # ---- players ----------------------------------------------------------------------
 @app.get("/api/players")
 def players(season: str | None = None, team: str | None = None, q: str | None = None,
-            sort: str = "minutes", qualified_only: bool = True, limit: int = Query(400, le=1000)):
+            sort: str = "minutes", qualified_only: bool = True, rated_only: bool = False,
+            limit: int = Query(400, le=1000)):
+    """rated_only keeps players with enough data on the sort attribute, for leader lists."""
     season = season or latest_season()
     r = T()["ratings_season"]
     r = r[r.season == season]
@@ -86,12 +102,17 @@ def players(season: str | None = None, team: str | None = None, q: str | None = 
         r = r[r.player.str.contains(q, case=False, na=False)]
     if sort not in r.columns:
         raise HTTPException(400, f"unknown sort {sort}")
+    if rated_only and sort in ATTR_KEYS:
+        r = r[~r[f"{sort}_low_data"]]
+        if sort == "three_point":
+            r = r[~r.three_non_shooter]
     r = r.sort_values(sort, ascending=False).head(limit)
     names = team_names(season)
     cols = ["player_id", "player", "team", "games", "minutes", "mpg"] + ATTR_KEYS
     out = records(r[cols].round({"minutes": 0, "mpg": 1}))
-    for o in out:
+    for o, (_, row) in zip(out, r.iterrows()):
         o["team_name"] = names.get(o["team"], o["team"])
+        o["labels"] = _labels(row)
     return {"season": season, "players": out}
 
 
@@ -118,6 +139,7 @@ def player(player_id: str, season: str | None = None):
     other_seasons = sorted(rs[rs.player_id == player_id].season.unique().tolist(), reverse=True)
     n_games = max(int(row["games"]), 1)
     totals = games[["pts", "orb", "drb", "ast", "stl", "blk", "tov", "pir", "fg2m", "fg2a", "fg3m", "fg3a", "ftm", "fta"]].sum()
+    clutch_plays = float(met["clutch_use"])
     return {
         "season": season, "seasons": other_seasons,
         "player": {"player_id": player_id, "name": row["player"], "team": row["team"],
@@ -129,14 +151,22 @@ def player(player_id: str, season: str | None = None):
                     | {"reb": round(float(totals.orb + totals.drb) / n_games, 1),
                        "fg2_pct": round(float(totals.fg2m) / max(float(totals.fg2a), 1), 3),
                        "fg3_pct": round(float(totals.fg3m) / max(float(totals.fg3a), 1), 3),
-                       "ft_pct": round(float(totals.ftm) / max(float(totals.fta), 1), 3)},
+                       "ft_pct": round(float(totals.ftm) / max(float(totals.fta), 1), 3),
+                       "fg3m": round(float(totals.fg3m) / n_games, 1), "fg3a": round(float(totals.fg3a) / n_games, 1)},
         "shooting": {z: round(float(met[c]), 3) for z, c in
-                     [("rim", "rim_pct"), ("paint", "paint_pct"), ("mid", "mid_pct"),
-                      ("corner3", "corner3_pct"), ("three", "three_pct"), ("ft", "ft_pct")]},
+                     [("inside", "inside_adj"), ("mid", "mid_pct"), ("corner3", "corner3_pct"), ("three", "three_pct"),
+                      ("ft", "ft_pct")]},
+        "info": {
+            "clutch": {"points": int(met["clutch_points"]), "plays": round(clutch_plays, 1),
+                       "per_play": round(float(met["clutch_points"]) / clutch_plays, 2) if clutch_plays > 0 else None},
+            "corner3_attempts": int(float(met["n_corner3_pct"])),
+            "inside_on_off": {"fga_on": _round(met["opp_inside_fga_on"], 1), "fga_off": _round(met["opp_inside_fga_off"], 1),
+                              "pct_on": _round(met["opp_inside_pct_on"], 3), "pct_off": _round(met["opp_inside_pct_off"], 3)},
+        },
         "months": [{"month": m["month"], "games": int(m["games"]), "ratings": _ratings(m)} for _, m in months.iterrows()],
         "games": records(games[["gamecode", "date", "round", "team", "opponent", "is_home", "minutes", "pts",
                                 "orb", "drb", "ast", "stl", "blk", "tov", "pir", "plus_minus", "gmsc",
-                                "game_rating", "home_score", "away_score"]].round({"minutes": 1, "gmsc": 1})),
+                                "game_rating", "short_game", "home_score", "away_score"]].round({"minutes": 1, "gmsc": 1})),
         "shots": records(sh[["x", "y", "made", "zone", "value", "assisted"]]),
     }
 
@@ -161,8 +191,10 @@ def team(code: str, season: str | None = None):
     if r.empty:
         raise HTTPException(404, "team not found")
     cols = ["player_id", "player", "games", "minutes", "mpg", "qualified"] + ATTR_KEYS
-    return {"season": season, "code": code, "name": team_names(season).get(code, code),
-            "roster": records(r[cols].round({"minutes": 0, "mpg": 1}))}
+    roster = records(r[cols].round({"minutes": 0, "mpg": 1}))
+    for o, (_, row) in zip(roster, r.iterrows()):
+        o["labels"] = _labels(row)
+    return {"season": season, "code": code, "name": team_names(season).get(code, code), "roster": roster}
 
 
 # ---- coach: sets & simulation -------------------------------------------------------
@@ -220,4 +252,4 @@ def reload_tables():
 def leaders(key: str, season: str | None = None, limit: int = 10):
     if key not in ATTR_BY_KEY:
         raise HTTPException(404, "unknown attribute")
-    return players(season=season, sort=key, limit=limit)
+    return players(season=season, sort=key, rated_only=True, limit=limit)

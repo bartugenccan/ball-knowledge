@@ -156,9 +156,10 @@ class SetSimulator:
         if node.get("creation") == "dribble":
             adj -= p.dribble_penalty * max(0.0, 1 - 0.5 * creation)
         over = max(0.0, self.ctx.stint_minutes - p.fatigue_free_min)
-        adj += p.fatigue_per_min * over * max(0.2, 1 - 0.3 * _sd(shooter.r("stamina")))
+        # league-wide effects only: the data show no lasting player differences in either
+        adj += p.fatigue_per_min * over
         if self.ctx.clutch:
-            adj += p.clutch_league + p.clutch_beta * _sd(shooter.r("clutch"))
+            adj += p.clutch_league
         p_open = _sig(base + gap + adj)
         p_cont = _sig(base - contested_gap + adj)
         p_foul = min(0.5, p.shooting_foul_rate[zone] * math.exp(0.25 * _sd(shooter.r("drawing_fouls"))))

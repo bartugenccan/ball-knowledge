@@ -14,6 +14,11 @@ def main(seasons: list[str]) -> None:
     with EuroleagueClient() as client:
         for season in seasons:
             games = [g for g in client.games(season) if g.get("played")]
+            for fetch in (client.people, client.official_player_totals):
+                try:
+                    fetch(season)
+                except Exception as e:  # reference data must not block game ingest
+                    print(f"{season}: {fetch.__name__} FAILED: {e}", flush=True)
             fetched = missing = 0
             failed: list[str] = []
             for i, g in enumerate(sorted(games, key=lambda g: g["gameCode"]), 1):

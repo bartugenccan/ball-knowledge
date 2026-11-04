@@ -15,7 +15,7 @@ Gerekenler: [uv](https://docs.astral.sh/uv/) (Python 3.13'ü kendisi kurar) ve N
 
 ### Hızlı başlangıç: hazır tablolarla
 
-Veri repoda yok. Hazır `data/tables` klasörü (~8 MB) ayrıca paylaşılır.
+Veri repoda yok. Hazır `data/tables` klasörü (~13 MB) ayrıca paylaşılır. Kod güncellenince klasörü de güncel haliyle değiştirin: eski tablolar yeni API ile çalışmaz.
 
 1. Klasörü repo köküne koyun. Doğru yerdeyse `data/tables/ratings_season.parquet` ve `data/tables/sim_calibration.json` dosyaları bulunur (`engine/` ve `web/` ile aynı seviyede bir `data/` klasörü).
 2. Repo kökünde tek komut:
@@ -56,7 +56,16 @@ Kaynak hız sınırı uyguluyor (~60 hızlı istekten sonra 429). İstemci 1,2 s
 ```bash
 cd engine
 uv run pytest                          # parse, puan, simülatör, ingest, API
-uv run python scripts/check_tables.py  # tablolar resmi kutu skorlarıyla tutarlı mı
+uv run python scripts/check_tables.py  # tablo doğrulaması; sorun varsa hata koduyla çıkar
+uv run python scripts/audit/foundation.py  # veri temeli denetim raporu (data/audit/foundation.md)
+uv run python scripts/audit/method.py      # küçültme, ölçek ve aralık denetimi (data/audit/method.md)
+uv run python scripts/audit/stage3.py      # yeni özellik formülleri, eski puanlarla yan yana (data/audit/stage3.md)
+uv run python scripts/audit/stage4.py      # şut özellikleri, eski puanlarla yan yana (data/audit/stage4.md)
+uv run python scripts/audit/stage5.py      # savunma modelleri, eski puanlarla yan yana (data/audit/stage5.md)
+uv run python scripts/audit/stage6.py      # clutch, oyun yükü, istikrar, maç puanı (data/audit/stage6.md)
+uv run python scripts/audit/final_check.py # parametre seçiminde kullanılmayan sezonla son kontrol (data/audit/final_check.md)
+uv run python scripts/audit/sim_compare.py # simülatör: eski ve yeni puanlar (data/audit/sim_compare.md)
+uv run python -m bk.ratings.legacy_build   # denetim karşılaştırmaları için eski yöntemin tabloları (*_v1); ürün bunları okumaz
 uv run python scripts/backtest.py E2025  # küçük örneklem düzeltmesi tahmin gücü
 ```
 

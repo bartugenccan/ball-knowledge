@@ -70,6 +70,12 @@ def test_possessions_follow_ball():
     assert "H6" in t.possessions[2]["off_lineup"] and "H5" not in t.possessions[2]["off_lineup"]
 
 
+def test_shots_carry_their_possession_number():
+    t = make_game()
+    assert [p["poss_no"] for p in t.possessions] == [0, 1, 2, 3]
+    assert [s["poss_no"] for s in t.shots] == [0, 1, 1, 2]  # the putback stays in the same possession
+
+
 def test_stints_cover_substitution():
     t = make_game()
     h5 = [s for s in t.stints if s["player_id"] == "H5"]
@@ -78,11 +84,33 @@ def test_stints_cover_substitution():
     assert h6[0]["start"] == 120 and h6[0]["end"] == 600
 
 
+def test_rebound_chances_record_both_lineups_at_that_moment():
+    t = make_game()
+    first, second = t.rebound_chances
+    assert (first["type"], first["team"], first["offense"], first["defense"]) == ("O", "AWY", "AWY", "HOM")
+    assert "H5" in first["def_lineup"] and "H6" not in first["def_lineup"]  # before the substitution
+    assert (second["type"], second["team"], second["offense"], second["defense"]) == ("D", "AWY", "HOM", "AWY")
+    assert "H6" in second["off_lineup"] and "H5" not in second["off_lineup"]  # after the substitution
+
+
 def test_overtime_periods_split_on_begin_period():
     pbp = {"ExtraTime": [ev(1, "BP", "", "", ""), ev(2, "2FGA", "X", "P", "04:00"), ev(3, "EP", "", "", ""),
                          ev(4, "BP", "", "", ""), ev(5, "2FGA", "X", "P", "04:00")]}
     periods = [p for p, _ in flatten_pbp(pbp)]
     assert periods == [5, 5, 5, 6, 6]
+
+
+def test_substitutions_before_begin_period_do_not_create_an_overtime():
+    pbp = {"ExtraTime": [ev(1, "IN", "X", "P", "05:00"), ev(2, "OUT", "X", "Q", "05:00"), ev(3, "BP", "", "", ""),
+                         ev(4, "2FGA", "X", "P", "04:00"), ev(5, "EP", "", "", ""), ev(6, "EG", "", "", "")]}
+    assert [p for p, _ in flatten_pbp(pbp)] == [5, 5, 5, 5, 5, 5]
+
+
+def test_rows_after_end_period_belong_to_the_next_overtime():
+    pbp = {"ExtraTime": [ev(1, "BP", "", "", ""), ev(2, "2FGA", "X", "P", "04:00"), ev(3, "EP", "", "", ""),
+                         ev(4, "IN", "X", "P", "05:00"), ev(5, "BP", "", "", ""), ev(6, "2FGA", "X", "P", "04:00"),
+                         ev(7, "EP", "", "", ""), ev(8, "EG", "", "", "")]}
+    assert [p for p, _ in flatten_pbp(pbp)] == [5, 5, 5, 6, 6, 6, 6, 6]
 
 
 def test_zones():

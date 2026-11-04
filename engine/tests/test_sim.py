@@ -49,3 +49,15 @@ def test_invalid_set_rejected():
     bad["nodes"]["post"]["options"][0]["to"] = "nowhere"
     with pytest.raises(ValueError):
         sim(bad)
+
+
+def test_second_chance_points_count_free_throws_until_the_ball_changes_hands():
+    import pandas as pd
+
+    from bk.sim.calibrate import second_chance_points
+
+    rows = [("O", "A"), ("2FGA", "A"), ("D", "B"),          # miss: 0 points on the first rebound
+            ("O", "A"), ("FTM", "A"), ("FTA", "A"), ("D", "B"),  # 1 point on the second
+            ("O", "A"), ("3FGM", "A"), ("2FGM", "B")]        # 3 on the third; B's basket does not count
+    events = pd.DataFrame([{"season": "S", "gamecode": 1, "seq": i, "type": k, "team": tm} for i, (k, tm) in enumerate(rows)])
+    assert second_chance_points(events) == (0 + 1 + 3) / 3

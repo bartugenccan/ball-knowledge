@@ -16,7 +16,7 @@ async function get<T>(path: string, params: Record<string, string | undefined> =
 
 export const getMeta = cache(() => get<Meta>("/api/meta"));
 
-export const getPlayers = (p: { season?: string; team?: string; q?: string; sort?: string; limit?: string }) =>
+export const getPlayers = (p: { season?: string; team?: string; q?: string; sort?: string; limit?: string; rated_only?: string }) =>
   get<{ season: string; players: PlayerRow[] }>("/api/players", p);
 
 // cache() dedupes the call between generateMetadata and the page within one request

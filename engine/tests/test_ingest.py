@@ -13,6 +13,29 @@ def test_cached_game_file_is_not_refetched(tmp_path):
     assert len(calls) == 1
 
 
+def test_season_reference_files_keep_last_good_copy(tmp_path):
+    replies = [{"data": [1]}, None]
+    with EuroleagueClient(raw_dir=tmp_path, min_interval=0) as c:
+        c._get_json = lambda url, params=None: replies.pop(0)
+        assert c.people("E2099") == {"data": [1]}
+        assert c.people("E2099") == {"data": [1]}  # empty answer must not erase the cached file
+        assert c.people("E2099", refresh=False) == {"data": [1]}  # no third request
+    assert replies == []
+
+
+def test_official_totals_ask_for_accumulated_numbers(tmp_path):
+    seen = {}
+
+    def fake(url, params=None):
+        seen.update(params)
+        return {"players": []}
+
+    with EuroleagueClient(raw_dir=tmp_path, min_interval=0) as c:
+        c._get_json = fake
+        c.official_player_totals("E2099")
+    assert seen["statisticMode"] == "accumulated" and seen["SeasonCode"] == "E2099"
+
+
 def test_empty_body_is_not_cached(tmp_path):
     with EuroleagueClient(raw_dir=tmp_path, min_interval=0) as c:
         c._get_json = lambda url, params=None: None

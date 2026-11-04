@@ -7,6 +7,7 @@ export interface AttributeMeta {
   group: Group;
   source: Source;
   description: string;
+  display: "number" | "tier";
 }
 
 export interface Meta {
@@ -21,6 +22,12 @@ export interface Rating {
   key: string;
   value: number;
   conf: number;
+  /** 80% interval on the rating scale. */
+  lo?: number;
+  hi?: number;
+  low_data?: boolean;
+  /** What the card shows: the number, a tier ("Orta") or a statement ("Üçlük kullanmıyor"). */
+  display?: string;
 }
 
 export type PlayerRow = {
@@ -31,7 +38,8 @@ export type PlayerRow = {
   games: number;
   minutes: number;
   mpg: number;
-} & Record<string, number | string>;
+  labels: Record<string, string>;
+} & Record<string, number | string | Record<string, string>>;
 
 export interface GameLine {
   gamecode: number;
@@ -52,6 +60,7 @@ export interface GameLine {
   plus_minus: number;
   gmsc: number;
   game_rating: number;
+  short_game: boolean;
   home_score: number | null;
   away_score: number | null;
 }
@@ -81,6 +90,11 @@ export interface PlayerDetail {
   ratings: Rating[];
   per_game: Record<string, number>;
   shooting: Record<string, number>;
+  info: {
+    clutch: { points: number; plays: number; per_play: number | null };
+    corner3_attempts: number;
+    inside_on_off: { fga_on: number | null; fga_off: number | null; pct_on: number | null; pct_off: number | null };
+  };
   months: { month: string; games: number; ratings: Rating[] }[];
   games: GameLine[];
   shots: Shot[];
@@ -99,7 +113,8 @@ export type RosterRow = {
   minutes: number;
   mpg: number;
   qualified: boolean;
-} & Record<string, number | string | boolean>;
+  labels: Record<string, string>;
+} & Record<string, number | string | boolean | Record<string, string>>;
 
 export interface SetOption {
   to: string;

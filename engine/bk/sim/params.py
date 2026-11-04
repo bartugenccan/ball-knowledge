@@ -36,7 +36,6 @@ class SimParams:
     fatigue_per_min: float = -0.010     # logit change per stint minute beyond fatigue_free_min
     fatigue_free_min: float = 5.0
     clutch_league: float = -0.03        # league-wide logit shift in clutch time
-    clutch_beta: float = 0.08           # per SD of the Clutch rating
     shooting_foul_rate: dict[str, float] = field(default_factory=lambda: {
         "rim": 0.16, "paint": 0.10, "mid": 0.03, "corner3": 0.015, "above_break3": 0.015})
     and_one_share: float = 0.22         # share of shooting fouls where the shot still counts

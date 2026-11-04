@@ -3,7 +3,7 @@ import type { Group, Rating, Source } from "./types";
 export const GROUP_LABEL: Record<Group, string> = {
   hucum: "Hücum",
   savunma: "Savunma",
-  zihinsel: "Zihinsel & Fiziksel",
+  zihinsel: "Yük & İstikrar",
 };
 
 export const SOURCE_LABEL: Record<Source, string> = {
@@ -18,13 +18,31 @@ export const SOURCE_HINT: Record<Source, string> = {
   tahmini: "Açık veride doğrudan yok; sahadaki beşli verisinden dolaylı tahmin.",
 };
 
-/** Tone bucket for a 1–20 attribute. Use as r-*, chip-r-*, fill-r-* class suffix. */
+/** Tone bucket for a 1–20 attribute. Use as r-* (text), tile-r-* (card), heat-r-* (fill). */
 export function tone(v: number): string {
   if (v >= 17) return "r-elite";
   if (v >= 14) return "r-good";
   if (v >= 10) return "r-avg";
   if (v >= 6) return "r-low";
   return "r-poor";
+}
+
+/** Fill colour for one position on the 1-20 scale (lamps and arena seats). */
+export function heatVar(n: number): string {
+  return `var(--heat-${tone(n).slice(2)})`;
+}
+
+/** Tone for a Düşük / Orta / Yüksek label; statements like "Az veri" stay neutral. */
+export function labelTone(label: string): string {
+  return label === "Yüksek" ? "r-good" : label === "Orta" ? "r-avg" : label === "Düşük" ? "r-low" : "text-muted";
+}
+
+// Not single letters: in the condensed display face a lone "O" reads as a rating of 0.
+const SHORT_LABEL: Record<string, string> = { Yüksek: "Yük", Orta: "Ort", Düşük: "Düş" };
+
+/** Short form of a tier for table cells; a statement becomes a dash, with the words in the title. */
+export function shortLabel(label: string): string {
+  return SHORT_LABEL[label] ?? "–";
 }
 
 /** Tone bucket for a 1–10 match rating. */
@@ -39,11 +57,11 @@ export function gameTone(v: number): string {
 /** Radar axes: each is the mean of a few attributes. */
 export const RADAR_AXES: { label: string; keys: string[] }[] = [
   { label: "Bitiricilik", keys: ["finishing", "drawing_fouls"] },
-  { label: "Dış şut", keys: ["three_point", "corner_three", "mid_range", "free_throw"] },
+  { label: "Dış şut", keys: ["three_point", "mid_range", "free_throw"] },
   { label: "Oyun kurma", keys: ["passing", "ball_security", "shot_creation"] },
   { label: "Ribaund", keys: ["off_rebounding", "def_rebounding"] },
   { label: "Savunma", keys: ["steals", "shot_blocking", "rim_protection", "perimeter_defense", "team_defense", "discipline"] },
-  { label: "Zihinsel", keys: ["clutch", "stamina", "consistency"] },
+  { label: "Yük & istikrar", keys: ["stamina", "consistency"] },
 ];
 
 export function radarValues(ratings: Rating[]): { label: string; value: number }[] {
@@ -54,17 +72,22 @@ export function radarValues(ratings: Rating[]): { label: string; value: number }
   });
 }
 
+/** Unrounded overall, for ranking. Several players round to the same headline number. */
+export function overallExact(ratings: Rating[]): number {
+  const axes = radarValues(ratings);
+  return axes.reduce((s, a) => s + a.value, 0) / axes.length;
+}
+
 /** Headline number: mean of the radar axes, so no single group dominates. */
 export function overall(ratings: Rating[]): number {
-  const axes = radarValues(ratings);
-  return Math.round(axes.reduce((s, a) => s + a.value, 0) / axes.length);
+  return Math.round(overallExact(ratings));
 }
 
 // Player names are mostly non-Turkish: locale-free casing keeps "MILLER" -> "Miller", not "Mıller".
 const cap = (s: string) =>
   s
     .toLowerCase()
-    .replace(/(^|[\s'-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase())
+    .replace(/(^|[\s'.-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase())
     .replace(/\b(Ii|Iii|Iv)\b/g, (r) => r.toUpperCase()); // "Clark Iii" -> "Clark III"
 
 /** Feed names are "LAST, FIRST" in capitals. */
@@ -92,6 +115,8 @@ export function monthLabel(m: string): string {
 }
 
 export const ZONE_LABEL: Record<string, string> = {
+  inside: "Pota + boyalı alan",
+  // the simulator's sets still name these two separately
   rim: "Pota altı",
   paint: "Boyalı alan",
   mid: "Orta mesafe",

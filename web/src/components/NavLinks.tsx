@@ -1,8 +1,8 @@
 "use client";
 
-import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 
 const NAV = [
   { href: "/players", label: "Oyuncular" },
@@ -12,33 +12,26 @@ const NAV = [
   { href: "/method", label: "Yöntem" },
 ];
 
-/** Primary nav; the active pill slides between items (shared layoutId). */
+/** Primary nav. Labels are squeezed until you point at them, the current page stays wide. */
 export function NavLinks(props: { static?: boolean }) {
   return props.static ? <Links path="" /> : <ActiveLinks />;
 }
 
 function ActiveLinks() {
-  return <Links path={usePathname()} />;
+  const path = usePathname();
+  useEffect(() => {
+    document.querySelector('nav[aria-label="Ana menü"] [aria-current="page"]')?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [path]);
+  return <Links path={path} />;
 }
 
 function Links({ path }: { path: string }) {
   return (
-    <nav className="-mx-1 flex min-w-0 gap-1 overflow-x-auto text-sm">
+    <nav className="-mx-1 flex min-w-0 items-center gap-3 overflow-x-auto px-1 md:gap-4" aria-label="Ana menü">
       {NAV.map((n) => {
         const active = path === n.href || path.startsWith(`${n.href}/`);
         return (
-          <Link
-            key={n.href}
-            href={n.href}
-            className={`relative isolate whitespace-nowrap rounded-full px-3 py-1.5 transition-colors ${active ? "text-ink" : "text-muted hover:text-ink"}`}
-          >
-            {active && (
-              <motion.span
-                layoutId="nav-active"
-                className="absolute inset-0 -z-10 rounded-full bg-panel-2 ring-1 ring-line-2"
-                transition={{ type: "spring", stiffness: 380, damping: 32 }}
-              />
-            )}
+          <Link key={n.href} href={n.href} aria-current={active ? "page" : undefined} className="nav-link">
             {n.label}
           </Link>
         );

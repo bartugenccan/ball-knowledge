@@ -1,0 +1,24 @@
+{
+  "note": "Frozen basketball reference, written by the product owner before any new model output was seen. Do not edit after seeing model results.",
+  "frozen_on": "2026-11-04",
+  "rim_protection": {
+    "best_players": [
+      {"name": "TAVARES, WALTER", "player_id": "P005791"},
+      {"name": "DIARRA, ALIOU"},
+      {"name": "OTURU, DAN"},
+      {"name": "JONES, KAI"},
+      {"name": "ODIASE, TAI", "player_id": "P011823"},
+      {"name": "FAYE, MOUHAMED"},
+      {"name": "LESSORT, MATHIAS"},
+      {"name": "KABENGELE, MFIONDU"},
+      {"name": "FALL, MOUSTAPHA", "player_id": "P008811"},
+      {"name": "IBAKA, SERGE"}
+    ],
+    "worst_rule": {
+      "description": "Short guards: no player names were given, the owner expects short point guards at the bottom.",
+      "position": "Guard",
+      "max_height_cm": 188,
+      "min_minutes": 500
+    }
+  }
+}

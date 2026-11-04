@@ -64,15 +64,17 @@ def flatten_pbp(pbp: dict) -> list[tuple[int, dict]]:
     out: list[tuple[int, dict]] = []
     for p, key in enumerate(PERIOD_KEYS, 1):
         out += [(p, r) for r in (pbp.get(key) or [])]
-    # ExtraTime holds all OT periods concatenated; a BP after real events starts the next one
-    ot, seen_play = 5, False
+    # ExtraTime holds all OT periods concatenated. Only EP closes one: substitutions can be
+    # logged before the BP of the same period, and rows after EP (other than the game-ending
+    # EG) already belong to the next period.
+    ot, ended = 5, False
     for r in pbp.get("ExtraTime") or []:
-        if _s(r.get("PLAYTYPE")) == "BP":
-            if seen_play:
-                ot, seen_play = ot + 1, False
-        else:
-            seen_play = True
+        ptype = _s(r.get("PLAYTYPE"))
+        if ended and ptype != "EG":
+            ot, ended = ot + 1, False
         out.append((ot, r))
+        if ptype == "EP":
+            ended = True
     return out
 
 
@@ -83,6 +85,7 @@ class GameTables:
     possessions: list[dict] = field(default_factory=list)
     player_games: list[dict] = field(default_factory=list)
     stints: list[dict] = field(default_factory=list)
+    rebound_chances: list[dict] = field(default_factory=list)
 
 
 def _minutes(m: str) -> float:
@@ -195,12 +198,23 @@ def parse_game(season: str, gamecode: int, pbp: dict, points: dict, box: dict, m
                          "player_id": pid, "type": ptype, "home_score": score[home],
                          "away_score": score[away]})
 
+        # every rebound (team rebounds included) with both lineups at that moment
+        if ptype in ("O", "D") and team:
+            attacking = team if ptype == "O" else other.get(team, "")
+            t.rebound_chances.append({
+                **base, "seq": seq, "period": period, "clock_left": clock_left, "elapsed": elapsed,
+                "type": ptype, "team": team, "player_id": pid, "offense": attacking,
+                "defense": other.get(attacking, ""),
+                "off_lineup": sorted(on_court.get(attacking, set())),
+                "def_lineup": sorted(on_court.get(other.get(attacking, ""), set()))})
+
         # possessions -----------------------------------------------------------
         off = team if ptype in OFFENSE_EVENTS else (other.get(team) if ptype == "D" else None)
         if off:
             if poss is None or poss["offense"] != off:
                 end_possession()
-                poss = {**base, "period": period, "offense": off, "defense": other.get(off, ""),
+                poss = {**base, "poss_no": len(t.possessions), "period": period, "offense": off,
+                        "defense": other.get(off, ""),
                         "start": last_change, "end": elapsed, "points": 0,
                         "off_lineup": sorted(on_court.get(off, set())),
                         "def_lineup": sorted(on_court.get(other.get(off, ""), set()))}
@@ -224,7 +238,7 @@ def parse_game(season: str, gamecode: int, pbp: dict, points: dict, box: dict, m
             else:
                 context = "halfcourt"
             t.shots.append({
-                **base, "date": date, "num": r.get("NUMBEROFPLAY"), "period": period,
+                **base, "date": date, "seq": seq, "num": r.get("NUMBEROFPLAY"), "period": period,
                 "clock_left": clock_left, "elapsed": elapsed, "team": team,
                 "opponent": other.get(team, ""), "player_id": pid,
                 "value": SHOT_TYPES[ptype][0], "made": SHOT_TYPES[ptype][1],
@@ -234,6 +248,8 @@ def parse_game(season: str, gamecode: int, pbp: dict, points: dict, box: dict, m
                 "assisted": False, "assist_player_id": "",
                 "poss_seconds": poss_seconds, "since_orb": since_orb, "context": context,
                 "def_lineup": sorted(on_court.get(other.get(team, ""), set())),
+                "off_lineup": sorted(on_court.get(team, set())),
+                "poss_no": poss["poss_no"] if poss else -1,
             })
             pending_assist_for = len(t.shots) - 1 if SHOT_TYPES[ptype][1] else None
         elif ptype == "AS" and pending_assist_for is not None:

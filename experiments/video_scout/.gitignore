@@ -1,0 +1,8 @@
+# Club footage and labels are confidential and must never reach git.
+/clips/
+/results/
+/labels.csv
+/sets.csv
+/review.csv
+__pycache__/
+.pytest_cache/

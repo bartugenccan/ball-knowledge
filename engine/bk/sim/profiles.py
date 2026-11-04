@@ -12,7 +12,7 @@ from functools import lru_cache
 import pandas as pd
 
 from bk.config import TABLES_DIR
-from bk.ratings.attributes import ATTRIBUTES
+from bk.ratings.catalog import RATING_ATTRIBUTES
 from bk.sim.engine import Player
 
 # simulator key -> metrics column
@@ -53,4 +53,4 @@ def load_player(season: str, player_id: str) -> Player:
         raise KeyError(f"no ratings for {player_id} in {season}")
     row, met = r.loc[key], m.loc[key]
     return Player(player_id=player_id, name=str(row["player"]).title(),
-                  ratings={a.key: int(row[a.key]) for a in ATTRIBUTES}, pct=_pct(met))
+                  ratings={a.key: int(row[a.key]) for a in RATING_ATTRIBUTES}, pct=_pct(met))

@@ -41,6 +41,26 @@ def shooting_fouls(events: pd.DataFrame) -> dict[str, int]:
             "and1_2": int((and1.type == "2FGM").sum()), "and1_3": int((and1.type == "3FGM").sum())}
 
 
+def second_chance_points(events: pd.DataFrame) -> float:
+    """Points per offensive rebound, field goals and free throws, until the other team has the ball."""
+    points = {"2FGM": 2, "3FGM": 3, "FTM": 1}
+    other_team_ends = {"2FGM", "2FGA", "3FGM", "3FGA", "FTM", "FTA", "TO", "O"}
+    total, rebounds = 0, 0
+    for _, g in events.sort_values(["season", "gamecode", "seq"]).groupby(["season", "gamecode"], sort=False):
+        holder = None
+        for kind, team in zip(g.type, g.team):
+            if kind in ("BP", "EP", "EG"):
+                holder = None
+            elif kind == "O":
+                holder, rebounds = team, rebounds + 1
+            elif holder is not None:
+                if team == holder and kind in points:
+                    total += points[kind]
+                elif (team != holder and kind in other_team_ends) or kind == "D" or (team == holder and kind == "TO"):
+                    holder = None
+    return total / max(rebounds, 1)
+
+
 def fit_slope(y: np.ndarray, offset: np.ndarray, x: np.ndarray, iters: int = 30) -> tuple[float, float]:
     """1-D logistic regression with an offset: logit p = offset + b·x. Returns (b, standard error)."""
     b = 0.0
@@ -104,13 +124,12 @@ def calibrate(free_min: float = 5.0) -> dict:
     games = pg.groupby(["season", "gamecode", "team"])[["orb", "drb"]].sum()
     opp = games.groupby(level=[0, 1]).transform(lambda x: x[::-1].to_numpy())
     orb_rate = float(games.orb.sum() / (games.orb.sum() + opp.drb.sum()))
-    sc = s[s.second_chance]
-    second_chance_ppp = float((sc.made * sc.value).sum() / max(pg.orb.sum(), 1))
+    second_chance_ppp = second_chance_points(events)
 
     result = {
         "fatigue_per_min": round(fat_post, 4), "fatigue_free_min": free_min,
         "clutch_league": round(cl_post, 4), "orb_rate": round(orb_rate, 4),
-        "second_chance_ppp": round(max(second_chance_ppp, 0.8), 3),
+        "second_chance_ppp": round(second_chance_ppp, 3),
         "shooting_foul_rate": foul_rate, "and_one_share": round(and_one_share, 3),
     }
     report = {**result, "fatigue_raw": round(fat, 4), "fatigue_se": round(fat_se, 4),

@@ -18,6 +18,7 @@ from bk.config import COMPETITION, RAW_DIR
 
 LIVE_BASE = "https://live.euroleague.net/api"
 V2_BASE = "https://api-live.euroleague.net/v2"
+V3_FEEDS_BASE = "https://feeds.incrowdsports.com/provider/euroleague-feeds/v3"
 USER_AGENT = "ball-knowledge/0.1 (non-commercial research prototype)"
 
 GAME_KINDS = ("PlaybyPlay", "Points", "Boxscore")
@@ -80,6 +81,26 @@ class EuroleagueClient:
             data = self._get_json(f"{V2_BASE}/competitions/{COMPETITION}/seasons/{season}/games")
             self._write(path, data)
         return json.loads(path.read_text(encoding="utf-8"))["data"]
+
+    def _season_file(self, season: str, name: str, url: str, params: dict[str, Any], refresh: bool) -> Any | None:
+        path = self.raw_dir / season / f"{name}.json"
+        if refresh or not path.exists():
+            data = self._get_json(url, params)
+            if data:  # keep the last good copy if the source answers with an empty body
+                self._write(path, data)
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+    def people(self, season: str, refresh: bool = True) -> Any | None:
+        """Season roster: height, weight and position per player."""
+        return self._season_file(season, "people", f"{V2_BASE}/competitions/{COMPETITION}/seasons/{season}/people",
+                                 {"personType": "J", "limit": 1000}, refresh)
+
+    def official_player_totals(self, season: str, refresh: bool = True) -> Any | None:
+        """Official accumulated season totals, used only to reconcile our own tables."""
+        return self._season_file(season, "official_players",
+                                 f"{V3_FEEDS_BASE}/competitions/{COMPETITION}/statistics/players/traditional",
+                                 {"SeasonMode": "Single", "SeasonCode": season,
+                                  "statisticMode": "accumulated", "limit": 1000}, refresh)
 
     def game_path(self, season: str, gamecode: int, kind: str) -> Path:
         return self.raw_dir / season / f"{gamecode:03d}" / f"{kind}.json"

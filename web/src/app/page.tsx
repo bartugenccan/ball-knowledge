@@ -1,159 +1,206 @@
-import Link from "next/link";
 import { Suspense } from "react";
-import { LeaderBars } from "@/components/LeaderBars";
-import { CountUp } from "@/components/motion/CountUp";
-import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
-import { Spotlight } from "@/components/motion/Spotlight";
-import { Radar } from "@/components/Radar";
+import { ArenaChart } from "@/components/ArenaChart";
+import { FlipLink } from "@/components/Flip";
+import { LeaderIndex } from "@/components/LeaderIndex";
+import { LeagueCrowd } from "@/components/LeagueCrowd";
+import { Flap } from "@/components/motion/Flap";
+import { InView } from "@/components/motion/InView";
+import { Koreografi, type Frame } from "@/components/motion/Koreografi";
+import { PlayBoard } from "@/components/PlayBoard";
 import { Skeleton } from "@/components/Skeleton";
+import { clubVars } from "@/lib/clubs";
+import { Ticks } from "@/components/Ticks";
 import { getMeta, getPlayers } from "@/lib/api";
-import { nameParts, overall, properName, radarValues, seasonLabel, tone } from "@/lib/format";
+import { nameParts, overall, overallExact, properName, radarValues, seasonLabel, tone } from "@/lib/format";
 import type { AttributeMeta, PlayerRow, Rating } from "@/lib/types";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="space-y-16">
-      <section className="grid items-center gap-10 pt-4 lg:grid-cols-[1.05fr_1fr]">
-        <div className="space-y-6">
-          <h1 className="font-display text-5xl font-extrabold uppercase leading-[0.95] tracking-tight md:text-7xl">
-            EuroLeague&apos;i <span className="text-accent">1–20</span> ölçeğinde oku.
+    <>
+      <section>
+        <div className="on-stand h-[30dvh] min-h-[210px] max-h-[520px] md:h-[44dvh] md:min-h-[260px]">
+          <Suspense fallback={<Koreografi frames={[INTRO_FRAME]} />}>
+            <HeroStand />
+          </Suspense>
+        </div>
+        <div className="wrap grid items-end gap-x-12 gap-y-5 pt-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <h1 className="display stretch-in text-[clamp(2.8rem,6vw,5.6rem)]">
+            EuroLeague&apos;i <span className="whitespace-nowrap text-accent-text">1-20</span> ölçeğinde oku.
           </h1>
-          <p className="max-w-[46ch] text-lg leading-relaxed text-muted">
-            Her oyuncunun şut, pas, savunma ve baskı altındaki performansı, maç maç güncellenen verilerle puanlanır.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/players" className="btn-accent px-5 py-2.5">Oyuncuları incele</Link>
-            <Link href="/coach" className="btn-ghost px-5 py-2.5">Set simülatörü</Link>
+          <div className="space-y-5">
+            <p className="max-w-[46ch] text-lg leading-snug text-muted">
+              Her oyuncunun şutu, pası, savunması ve oyun yükü, maç maç güncellenen verilerle puanlanır.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <FlipLink href="/players">Oyuncuları incele</FlipLink>
+              <FlipLink href="/coach" ghost>Set simülatörü</FlipLink>
+            </div>
           </div>
         </div>
+      </section>
+
+      <section className="wrap mt-24">
+        <h2 className="display t-sec mb-2">Bütün lig, tek tribünde</h2>
+        <p className="mb-6 max-w-[60ch] text-muted">Her kart bir oyuncu. Özellik değiştir, tribün yeniden dizilsin. Kartın üstüne gel, kim olduğunu gör.</p>
         <Suspense fallback={<Skeleton className="h-[420px]" />}>
-          <FeaturedPlayer />
+          <Crowd />
         </Suspense>
       </section>
 
-      <Suspense fallback={<Skeleton className="h-[520px]" />}>
-        <Leaders />
+      <Suspense fallback={<div className="wrap mt-24"><Skeleton className="h-[520px]" /></div>}>
+        <FeaturedPlayer />
       </Suspense>
 
-      <Reveal>
-        <section className="panel grid items-center gap-6 overflow-hidden p-6 md:grid-cols-[1fr_auto] md:p-8">
-          <div aria-hidden className="pointer-events-none absolute -bottom-32 left-1/3 h-72 w-72 rounded-full bg-accent/15 blur-3xl" />
-          <div className="relative space-y-2">
-            <h2 className="font-display text-3xl font-bold uppercase">Setini çiz, 10.000 kez oynat.</h2>
-            <p className="max-w-[60ch] text-muted">
-              Koç paneli, seçtiğin beşliyi rakip savunmaya karşı oynatır. Hangi dalın ne sıklıkla geldiğini, şutun boş mu contest mi
-              olacağını ve possession başına beklenen sayıyı gösterir.
+      <section className="wrap mt-24">
+        <h2 className="display t-sec mb-6">Liderler</h2>
+        <Suspense fallback={<Skeleton className="h-[520px]" />}>
+          <Leaders />
+        </Suspense>
+      </section>
+
+      <section className="mt-24 bg-board text-chalk">
+        <div className="wrap grid items-center gap-x-14 gap-y-6 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:py-16">
+          <div className="space-y-5">
+            <h2 className="display t-sec">Setini çiz, 10.000 kez oynat.</h2>
+            <p className="max-w-[52ch] text-chalk-2">
+              Seçtiğin beşliyi rakip savunmaya karşı oynat. Hangi dalın ne sıklıkla geldiğini, şutun boş mu contest mi olacağını ve possession başına beklenen sayıyı gör.
             </p>
+            <Link href="/coach" className="flip [&>.b]:bg-chalk-2 [&>.b]:text-board [&>.f]:bg-chalk [&>.f]:text-board">
+              <span className="f">Koç paneline git</span>
+              <span className="b" aria-hidden>Koç paneline git</span>
+            </Link>
           </div>
-          <Link href="/coach" className="btn-accent relative px-5 py-2.5 text-center">Koç paneline git</Link>
-        </section>
-      </Reveal>
-    </div>
+          <PlayBoard />
+        </div>
+      </section>
+    </>
   );
 }
 
 const ratingsOf = (p: PlayerRow, attrs: AttributeMeta[]): Rating[] =>
   attrs.map((a) => ({ key: a.key, value: Number(p[a.key]), conf: 1 }));
 
-async function FeaturedPlayer() {
+/** Highest overall among players with a real share of the season's games. */
+async function leagueTop() {
   const meta = await getMeta();
   const { players } = await getPlayers({ sort: "minutes", limit: "400" });
-  const pool = players.filter((p) => p.games >= Math.max(3, Math.max(...players.map((x) => x.games)) * 0.6));
-  const best = [...pool].sort((a, b) => overall(ratingsOf(b, meta.attributes)) - overall(ratingsOf(a, meta.attributes)))[0];
-  if (!best) return null;
-  const ratings = ratingsOf(best, meta.attributes);
-  const ovr = overall(ratings);
+  const maxGames = Math.max(...players.map((x) => x.games));
+  const pool = players.filter((p) => p.games >= Math.max(3, maxGames * 0.6));
+  const best = [...pool].sort((a, b) => overallExact(ratingsOf(b, meta.attributes)) - overallExact(ratingsOf(a, meta.attributes)))[0];
+  return { meta, players, best };
+}
+
+const INTRO_FRAME: Frame = {
+  text: "1-20",
+  tone: "hot",
+  caption: { kicker: "Puan ölçeği", main: "Oyuncular özellik özellik 1 ile 20 arasında puanlanır" },
+};
+
+async function HeroStand() {
+  const { meta, best } = await leagueTop();
+  if (!best) return <Koreografi frames={[INTRO_FRAME]} />;
   const { first, last } = nameParts(best.player);
-  const top = [...meta.attributes].sort((a, b) => Number(best[b.key]) - Number(best[a.key])).slice(0, 3);
+  const ovr = overall(ratingsOf(best, meta.attributes));
+  const caption = {
+    kicker: `Ligin 1 numarası, ${seasonLabel(meta.latest)} genel puan sıralaması`,
+    main: `${first} ${last}, ${best.team_name}: genel ${ovr}`,
+    href: `/players/${best.player_id}`,
+  };
+  // the stand wears the colours of whoever is on top of the league
   return (
-    <div className="rise" style={{ ["--i" as string]: 4 }}>
-      <Spotlight className="overflow-hidden p-6">
-        <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-accent/25 blur-3xl" />
-        <div className="relative flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm text-muted">Ligin en yüksek genel puanı · {seasonLabel(meta.latest)}</p>
-            <Link href={`/players/${best.player_id}`} lang="en" className="group mt-1 block font-display uppercase leading-[0.9]">
-              <span className="block text-xl font-semibold text-muted">{first}</span>
-              <span className="block text-5xl font-extrabold transition-colors group-hover:text-accent">{last}</span>
-            </Link>
-            <p className="mt-1 text-sm text-dim">{best.team_name}</p>
-          </div>
-          <div className={`chip-${tone(ovr)} grid h-20 w-20 shrink-0 place-items-center rounded-2xl`}>
-            <CountUp value={ovr} className="font-display text-5xl font-extrabold leading-none" />
-          </div>
-        </div>
-        <div className="relative mt-2 grid items-center gap-4 sm:grid-cols-[1fr_auto]">
-          <Radar values={radarValues(ratings)} size={260} />
-          <ul className="space-y-3">
-            {top.map((a) => (
-              <li key={a.key} className="flex items-center justify-between gap-6">
-                <span className="text-sm text-muted">{a.label}</span>
-                <span className={`font-display text-3xl font-bold ${tone(Number(best[a.key]))}`}>{best[a.key]}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </Spotlight>
+    <div className="club on-stand h-full" style={clubVars(best.team)}>
+      <Koreografi
+        staticFrame={2}
+        frames={[
+          INTRO_FRAME,
+          { text: "1 NUMARA", tone: "amber", caption },
+          { text: last.toLocaleUpperCase("en"), tone: "bone", caption },
+          { text: String(ovr), tone: "bone", caption },
+        ]}
+      />
     </div>
   );
 }
 
-// 3-column bento: one 2x2 feature cell, two stacked cells beside it, three cells below (6 items, 9 slots).
-const LEADER_CELLS: { key: string; span: string }[] = [
-  { key: "three_point", span: "sm:col-span-2 lg:row-span-2" },
-  { key: "passing", span: "" },
-  { key: "rim_protection", span: "" },
-  { key: "clutch", span: "" },
-  { key: "finishing", span: "" },
-  { key: "shot_creation", span: "" },
-];
+// Overall ratings bunch around 11-12; single attributes use the whole scale and make a better crowd.
+const CROWD_KEYS = ["three_point", "finishing", "passing", "def_rebounding", "shot_blocking", "steals"];
+
+async function Crowd() {
+  const { meta, players } = await leagueTop();
+  const attrs = CROWD_KEYS.flatMap((key) => meta.attributes.filter((a) => a.key === key).map((a) => ({ key, label: a.label })));
+  return (
+    <LeagueCrowd
+      attrs={attrs}
+      players={players.map((p) => ({
+        id: p.player_id,
+        name: properName(p.player),
+        team: p.team,
+        vals: Object.fromEntries(CROWD_KEYS.map((k) => [k, Number(p[k])])),
+      }))}
+    />
+  );
+}
+
+async function FeaturedPlayer() {
+  const { meta, best } = await leagueTop();
+  if (!best) return null;
+  const ratings = ratingsOf(best, meta.attributes);
+  const ovr = overall(ratings);
+  const { first, last } = nameParts(best.player);
+  const top = meta.attributes
+    .filter((a) => !best.labels[a.key])
+    .sort((a, b) => Number(best[b.key]) - Number(best[a.key]))
+    .slice(0, 4);
+  return (
+    <section className="club on-stand mt-24" style={clubVars(best.team)}>
+      <div className="wrap grid items-center gap-x-12 gap-y-6 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:py-14">
+        <InView amount={0.3} className="order-2 mx-auto w-full max-w-[520px] lg:order-1">
+          <ArenaChart values={radarValues(ratings)} center={ovr} />
+        </InView>
+        <div className="order-1 space-y-6 lg:order-2">
+          <div>
+            <p className="mb-2 text-sm text-muted">Ligin en yüksek genel puanı, {seasonLabel(meta.latest)}</p>
+            <Link href={`/players/${best.player_id}`} lang="en" className="group block">
+              <span className="display block text-2xl text-muted">{first}</span>
+              <span className="display t-fit block transition-colors group-hover:text-accent-text" style={{ ["--len" as string]: Math.max(last.length, 7), fontSize: `min(calc(46vw / (${Math.max(last.length, 7)} * 0.52)), 8.5rem)` }}>{last}</span>
+            </Link>
+            <p className="mt-2 text-sm text-muted">{best.team_name}</p>
+          </div>
+          <div className="flex items-center gap-6">
+            <Flap value={ovr} size="5rem" bg="var(--ink)" ink="var(--bg)" />
+            <ul className="grid flex-1 gap-3 sm:grid-cols-2">
+              {top.map((a, i) => (
+                <li key={a.key}>
+                  <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
+                    <span className="truncate">{a.label}</span>
+                    <span className={`num text-lg ${tone(Number(best[a.key]))}`}>{Number(best[a.key])}</span>
+                  </div>
+                  <InView amount={0}><Ticks value={Number(best[a.key])} row={i * 2} /></InView>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const LEADER_KEYS = ["three_point", "passing", "rim_protection", "steals", "finishing", "shot_creation"];
 
 async function Leaders() {
   const meta = await getMeta();
-  const lists = await Promise.all(LEADER_CELLS.map((c) => getPlayers({ sort: c.key, limit: "5" })));
+  // rated_only: too little data means no place on a leader list, so a list can be empty early in a season
+  const lists = await Promise.all(LEADER_KEYS.map((key) => getPlayers({ sort: key, limit: "5", rated_only: "true" })));
   const attr = new Map(meta.attributes.map((a) => [a.key, a]));
   return (
-    <section className="space-y-5">
-      <Reveal>
-        <h2 className="font-display text-3xl font-bold uppercase tracking-wide">Liderler</h2>
-      </Reveal>
-      <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {LEADER_CELLS.map((cell, i) => {
-          const a = attr.get(cell.key)!;
-          const [lead, ...rest] = lists[i].players;
-          const big = i === 0;
-          return (
-            <StaggerItem key={cell.key} className={cell.span}>
-              <Spotlight className={`flex h-full flex-col p-5 ${big ? "bg-[radial-gradient(500px_300px_at_100%_0%,rgb(240_122_43/0.18),transparent_70%)]" : ""}`}>
-                <h3 className="text-sm text-muted">{a.label}</h3>
-                {lead && (
-                  <Link href={`/players/${lead.player_id}`} className="group mt-2 flex items-end justify-between gap-3">
-                    <span lang="en" className={`font-display font-bold uppercase leading-none transition-colors group-hover:text-accent ${big ? "text-5xl" : "text-2xl"}`}>
-                      {properName(lead.player)}
-                    </span>
-                    <span className={`font-display font-extrabold leading-none ${tone(Number(lead[cell.key]))} ${big ? "text-7xl" : "text-4xl"}`}>
-                      {lead[cell.key]}
-                    </span>
-                  </Link>
-                )}
-                {lead && <p className="mt-1 text-xs text-dim">{lead.team_name}</p>}
-                {big && <LeaderBars players={lists[i].players} attrKey={cell.key} />}
-                <ol className={`mt-auto space-y-1.5 pt-4 text-sm ${big ? "hidden" : "hidden sm:block"}`}>
-                  {rest.map((p) => (
-                    <li key={p.player_id} className="flex items-center gap-2">
-                      <Link href={`/players/${p.player_id}`} className="flex-1 truncate text-muted hover:text-ink">
-                        {properName(p.player)}
-                      </Link>
-                      <span className="text-xs text-dim">{p.team}</span>
-                      <span className={`w-6 text-right font-display text-lg font-bold ${tone(Number(p[cell.key]))}`}>{p[cell.key]}</span>
-                    </li>
-                  ))}
-                </ol>
-              </Spotlight>
-            </StaggerItem>
-          );
-        })}
-      </Stagger>
-    </section>
+    <LeaderIndex
+      lists={LEADER_KEYS.map((key, i) => ({
+        key,
+        label: attr.get(key)?.label ?? key,
+        players: lists[i].players.map((p) => ({ id: p.player_id, name: properName(p.player), team: p.team, value: Number(p[key]) })),
+      })).filter((list) => list.players.length > 0)}
+    />
   );
 }

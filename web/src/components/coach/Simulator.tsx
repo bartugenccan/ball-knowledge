@@ -1,8 +1,14 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
-import { CountUp } from "@/components/motion/CountUp";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { PossessionFlow } from "@/components/coach/PossessionFlow";
+import { FlipButton } from "@/components/Flip";
+import { Flap } from "@/components/motion/Flap";
+import { InView } from "@/components/motion/InView";
+import { Odo } from "@/components/motion/Odo";
+import { PlayBoard } from "@/components/PlayBoard";
+import { clubVars } from "@/lib/clubs";
 import { pct, properName, ZONE_LABEL } from "@/lib/format";
 import type { Meta, RosterRow, SetDef, SimResult, TeamSummary } from "@/lib/types";
 
@@ -30,7 +36,7 @@ function guessSlots(roster: RosterRow[]): Record<string, string> {
   const five = take((p) => num(p, "def_rebounding") + num(p, "shot_blocking") + num(p, "finishing"));
   const four = take((p) => num(p, "def_rebounding") + num(p, "off_rebounding"));
   const one = take((p) => 2 * num(p, "passing") + num(p, "ball_security"));
-  const two = take((p) => 2 * num(p, "three_point") + num(p, "corner_three"));
+  const two = take((p) => 2 * num(p, "three_point") + num(p, "free_throw"));
   const three = take((p) => Number(p.minutes));
   return { "1": one, "2": two, "3": three, "4": four, "5": five };
 }
@@ -51,6 +57,7 @@ export function Simulator() {
   const [runId, setRunId] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const resultsRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     Promise.all([getJSON<Meta>("/api/meta"), getJSON<{ sets: SetDef[] }>("/api/sets"), getJSON<{ teams: TeamSummary[] }>("/api/teams")])
@@ -102,6 +109,15 @@ export function Simulator() {
       });
       setResult(r);
       setRunId((n) => n + 1);
+      // on smaller screens the button sits far below the top of the results
+      requestAnimationFrame(() => {
+        const el = resultsRef.current;
+        if (!el) return;
+        const top = el.getBoundingClientRect().top;
+        if (top < 64 || top > window.innerHeight * 0.5) {
+          el.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+        }
+      });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -118,28 +134,27 @@ export function Simulator() {
   const leaguePPP = meta ? meta.league_ppp[meta.latest] : undefined;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,23rem)_1fr]">
-      <aside className="space-y-4">
-        <section className="panel space-y-3 p-4">
-          <h2 className="font-display text-lg font-bold uppercase tracking-wide">Set</h2>
-          <div className="flex flex-wrap gap-1.5">
+    <div className="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,21rem)_minmax(0,1fr)]">
+      <aside className="space-y-8">
+        <section className="space-y-3">
+          <h2 className="display t-sub border-b-2 border-ink pb-2">Set</h2>
+          <div className="flex flex-wrap gap-x-4" role="tablist" aria-label="Set">
             {sets.map((s) => (
-              <button key={s.id} type="button"
+              <button key={s.id} type="button" role="tab" aria-selected={setId === s.id} className="tab"
                 onClick={() => {
                   setSetId(s.id);
                   setSetJson(JSON.stringify(s, null, 2));
                   setResult(null);
-                }}
-                className={`pill px-3 py-1.5 text-sm ${setId === s.id ? "bg-accent text-accent-ink" : "border border-line-2 text-muted hover:text-ink"}`}>
+                }}>
                 {s.name}
               </button>
             ))}
           </div>
           <p className="text-sm text-muted">{sets.find((s) => s.id === setId)?.description}</p>
           <details className="text-xs">
-            <summary className="cursor-pointer text-dim hover:text-muted">Seti düzenle (JSON)</summary>
-            <textarea value={setJson} onChange={(e) => setSetJson(e.target.value)} spellCheck={false}
-              className="mt-2 h-64 w-full rounded-xl border border-line-2 bg-bg-2 p-3 font-mono text-[11px] text-ink focus:border-accent focus:outline-none" />
+            <summary className="cursor-pointer font-semibold text-muted hover:text-ink">Seti düzenle (JSON)</summary>
+            <textarea value={setJson} onChange={(e) => setSetJson(e.target.value)} spellCheck={false} aria-label="Set JSON"
+              className="mt-2 h-64 w-full border-2 border-ink bg-panel p-3 font-mono text-[11px] text-ink focus:border-accent focus:outline-none" />
             {!parsedSet && <p className="r-poor">JSON geçersiz.</p>}
           </details>
         </section>
@@ -148,9 +163,9 @@ export function Simulator() {
           const team = side === "off" ? offTeam : defTeam;
           const assign = side === "off" ? offense : defense;
           return (
-            <section key={side} className="panel space-y-3 p-4">
-              <h2 className="font-display text-lg font-bold uppercase tracking-wide">{side === "off" ? "Hücum" : "Savunma"}</h2>
-              <select value={team?.code ?? ""} onChange={(e) => loadTeam(e.target.value, side)} className="field w-full px-3 py-2 text-sm"
+            <section key={side} className="space-y-3">
+              <h2 className="display t-sub border-b-2 border-ink pb-2">{side === "off" ? "Hücum" : "Savunma"}</h2>
+              <select value={team?.code ?? ""} onChange={(e) => loadTeam(e.target.value, side)} className="field w-full text-sm font-semibold"
                 aria-label={side === "off" ? "Hücum takımı" : "Savunma takımı"}>
                 <option value="">Takım seçin</option>
                 {teams.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
@@ -158,17 +173,17 @@ export function Simulator() {
               <AnimatePresence initial={false}>
                 {team && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.35, ease: EASE }} className="space-y-2 overflow-hidden">
+                    transition={{ duration: 0.35, ease: EASE }} className="space-y-1.5 overflow-hidden">
                     {SLOTS.map((s) => (
                       <label key={s} className="flex items-center gap-2 text-xs">
-                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-panel-2 font-display text-sm font-bold text-accent">{s}</span>
+                        <span className="num grid h-7 w-7 shrink-0 place-items-center bg-ink text-sm text-bg">{s}</span>
                         <span className="w-20 shrink-0 text-muted">{side === "off" ? SLOT_LABEL[s] : `${s}'i savunan`}</span>
                         <select value={assign[s] ?? ""}
                           onChange={(e) => {
                             (side === "off" ? setOffense : setDefense)((prev) => ({ ...prev, [s]: e.target.value }));
                             setResult(null);
                           }}
-                          className="field min-w-0 flex-1 px-2.5 py-1.5">
+                          className="field min-w-0 flex-1 !py-1">
                           {team.roster.map((p) => <option key={p.player_id} value={p.player_id}>{properName(String(p.player))}</option>)}
                         </select>
                       </label>
@@ -180,56 +195,46 @@ export function Simulator() {
           );
         })}
 
-        <section className="panel space-y-4 p-4 text-sm">
-          <h2 className="font-display text-lg font-bold uppercase tracking-wide">Durum</h2>
-          <label className="block space-y-2">
-            <span className="flex justify-between text-xs text-muted">
+        <section className="space-y-4 text-sm">
+          <h2 className="display t-sub border-b-2 border-ink pb-2">Durum</h2>
+          <label className="block space-y-1.5">
+            <span className="flex items-baseline justify-between text-xs text-muted">
               <span>Beşli kaç dakikadır sahada</span>
-              <span className="font-mono text-ink">{stint} dk</span>
+              <span className="num text-lg text-ink">{stint} dk</span>
             </span>
-            <input type="range" min={0} max={12} step={1} value={stint} onChange={(e) => setStint(Number(e.target.value))}
-              className="w-full accent-[var(--accent)]" />
+            <input type="range" min={0} max={12} step={1} value={stint} onChange={(e) => setStint(Number(e.target.value))} className="slider" />
           </label>
           <label className="flex cursor-pointer items-center gap-3 text-xs">
-            <input type="checkbox" checked={clutch} onChange={(e) => setClutch(e.target.checked)} className="peer sr-only" />
-            <span className="relative h-5 w-9 rounded-full bg-line-2 transition-colors peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-ink after:transition-transform peer-checked:after:translate-x-4" />
+            <input type="checkbox" checked={clutch} onChange={(e) => setClutch(e.target.checked)} className="sr-only" />
+            <span className="tgl" aria-hidden />
             Clutch: son 5 dakika, fark 5 sayı veya daha az
           </label>
-          <motion.button type="button" onClick={run} disabled={!ready || busy} whileTap={{ scale: 0.97 }}
-            className="btn-accent relative w-full overflow-hidden px-4 py-3 disabled:cursor-not-allowed disabled:opacity-40">
-            {busy && (
-              <motion.span aria-hidden className="absolute inset-y-0 left-0 w-1/3 bg-white/25"
-                animate={{ x: ["-100%", "300%"] }} transition={{ repeat: Infinity, duration: 1.1, ease: "easeInOut" }} />
-            )}
-            <span className="relative">{busy ? "Oynatılıyor" : "10.000 kez oynat"}</span>
-          </motion.button>
+          <FlipButton type="button" onClick={run} disabled={!ready || busy} className="w-full !text-base">
+            {busy ? "Oynatılıyor" : "10.000 kez oynat"}
+          </FlipButton>
+          {!ready && !busy && <p className="text-xs text-muted">Oynatmak için iki takımı da seçin.</p>}
         </section>
       </aside>
 
-      <section className="min-w-0 space-y-4">
-        {error && <p className="panel p-4 text-sm r-poor">{error}</p>}
+      <section ref={resultsRef} className="club scroll-target min-w-0 space-y-10" style={clubVars(offTeam?.code)}>
+        {error && <p className="border-l-4 border-accent bg-bg-2 p-4 text-sm font-medium">{error}</p>}
         {!result && !error && (
-          <div className="panel grid min-h-80 place-items-center p-8 text-center">
-            <div className="space-y-2">
-              <p className="font-display text-2xl font-bold uppercase">Hücum ve savunmayı seçin</p>
-              <p className="text-sm text-muted">Takımları seçince beşliler puanlara göre yerleşir, istersen değiştirebilirsin.</p>
-            </div>
+          <div className="bg-board p-6 text-chalk md:p-8">
+            <p className="display t-sub !text-2xl">Hücum ve savunmayı seçin</p>
+            <p className="mb-4 mt-2 text-sm text-chalk-2">Takımları seçince beşliler puanlara göre yerleşir, istersen değiştirebilirsin.</p>
+            <PlayBoard />
           </div>
         )}
-        <AnimatePresence mode="wait">
-          {result && parsedSet && (
-            <motion.div key={runId} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.45, ease: EASE }} className="space-y-4">
-              <Results result={result} set={parsedSet} leaguePPP={leaguePPP} nameOf={nameOf} />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {result && parsedSet && (
+          <Results runId={runId} result={result} set={parsedSet} leaguePPP={leaguePPP} nameOf={nameOf} />
+        )}
       </section>
     </div>
   );
 }
 
-function Results({ result, set, leaguePPP, nameOf }: {
+function Results({ runId, result, set, leaguePPP, nameOf }: {
+  runId: number;
   result: SimResult;
   set: SetDef;
   leaguePPP?: number;
@@ -237,86 +242,63 @@ function Results({ result, set, leaguePPP, nameOf }: {
 }) {
   const diff = leaguePPP ? result.ppp - leaguePPP : 0;
   const maxSens = Math.max(0.01, ...(result.sensitivity ?? []).map((s) => Math.abs(s.ppp_contribution)));
+  const hot = diff >= 0;
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-[1.4fr_1fr_1fr]">
-        <div className="panel overflow-hidden p-5">
-          <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-accent/25 blur-3xl" />
-          <p className="relative text-sm text-muted">Possession başına sayı</p>
-          <CountUp value={result.ppp} decimals={2} className="relative font-display text-7xl font-extrabold leading-none" />
+      <div className="grid items-end gap-x-10 gap-y-6 sm:grid-cols-[auto_1fr_1fr]">
+        <div>
+          <p className="mb-2 text-sm text-muted">Possession başına sayı</p>
+          <Flap value={result.ppp} decimals={2} size="clamp(3.5rem, 7vw, 5.5rem)"
+            bg={hot ? "var(--club)" : "var(--muted)"} ink={hot ? "var(--club-ink)" : "var(--bg)"} />
           {leaguePPP && (
-            <p className="relative mt-1 text-sm">
-              <span className={diff >= 0 ? "r-elite" : "r-poor"}>{diff >= 0 ? "+" : ""}{diff.toFixed(2)}</span>
-              <span className="text-dim"> lig ortalamasına göre ({leaguePPP.toFixed(2)})</span>
+            <p className="mt-2 text-sm">
+              <span className={`font-bold ${hot ? "r-elite" : "r-poor"}`}>{hot ? "+" : ""}{diff.toFixed(2)}</span>
+              <span className="text-muted"> lig ortalamasına göre ({leaguePPP.toFixed(2)})</span>
             </p>
           )}
         </div>
-        <Stat label="Top kaybı" value={100 * result.turnover_rate} />
-        <Stat label="Sayısız biten" value={100 * (result.points_distribution["0"] ?? 0)} />
+        <Stat key={`t${runId}`} label="Top kaybı" value={100 * result.turnover_rate} />
+        <Stat key={`z${runId}`} label="Sayısız biten" value={100 * (result.points_distribution["0"] ?? 0)} />
       </div>
 
-      <section className="panel p-5">
-        <h3 className="mb-4 font-display text-lg font-bold uppercase tracking-wide">Dallanma</h3>
-        <ol className="space-y-5 text-sm">
-          {Object.entries(result.actions).map(([id, a], ai) => (
-            <li key={id}>
-              <div className="mb-2 flex items-baseline justify-between gap-2">
-                <span className="font-medium">{a.label}</span>
-                <span className="text-xs text-dim">top kaybı riski {pct(a.turnover_prob)}</span>
-              </div>
-              <ul className="space-y-1.5">
-                {a.options.map((o, oi) => {
-                  const label = set.nodes[id]?.options?.find((x) => x.to === o.to)?.label ?? set.nodes[o.to]?.label ?? o.to;
-                  return (
-                    <li key={o.to} className="grid grid-cols-[3rem_1fr] items-center gap-3">
-                      <span className="text-right font-mono text-xs">{pct(o.prob, 0)}</span>
-                      <div className="relative h-7 overflow-hidden rounded-lg bg-bg-2">
-                        <motion.div className="absolute inset-y-0 left-0 w-full origin-left rounded-lg bg-[var(--accent-soft)] ring-1 ring-inset ring-accent/40"
-                          initial={{ scaleX: 0 }} animate={{ scaleX: o.prob }}
-                          transition={{ duration: 0.7, delay: ai * 0.12 + oi * 0.06, ease: EASE }} />
-                        <span className="relative flex h-full items-center truncate px-2.5 text-xs">{label}</span>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </li>
-          ))}
-        </ol>
+      <section className="rule-t pt-4">
+        <h3 className="display t-sub mb-1">Possession akışı</h3>
+        <p className="mb-4 text-xs text-muted">Bant kalınlığı o dala giden possession payı. Kulüp rengi ligden iyi, gri kötü bir sonuç demek.</p>
+        <PossessionFlow key={runId} set={set} result={result} league={leaguePPP ?? 1.1} nameOf={(slot) => nameOf("off", slot)} />
       </section>
 
-      <section className="panel overflow-x-auto">
-        <table className="data-table w-full text-sm">
+      <section className="overflow-x-auto">
+        <table className="ledger w-full text-sm">
           <thead>
             <tr className="text-left">
-              <th className="px-4 py-3">ŞUT</th>
-              <th className="px-2 py-3 text-right">ULAŞMA</th>
-              <th className="px-2 py-3 text-right">CONTEST</th>
-              <th className="px-2 py-3 text-right">BOŞSA</th>
-              <th className="px-2 py-3 text-right">CONTEST&apos;TE</th>
-              <th className="px-2 py-3 text-right">FAUL</th>
-              <th className="px-4 py-3 text-right">PPP</th>
+              <th className="py-2 pr-2">ŞUT</th>
+              <th className="px-2 py-2 text-right">ULAŞMA</th>
+              <th className="px-2 py-2 text-right">CONTEST</th>
+              <th className="px-2 py-2 text-right">BOŞSA</th>
+              <th className="px-2 py-2 text-right">CONTEST&apos;TE</th>
+              <th className="px-2 py-2 text-right">FAUL</th>
+              <th className="py-2 pl-2 text-right">PPP</th>
             </tr>
           </thead>
           <tbody>
             {Object.entries(result.shots)
               .sort((a, b) => b[1].reach_rate - a[1].reach_rate)
-              .map(([id, s], i) => {
+              .map(([id, s]) => {
                 const node = set.nodes[id];
                 return (
-                  <tr key={id} className="rise border-t border-line/60" style={{ ["--i" as string]: i }}>
-                    <td className="px-4 py-2.5">
-                      <div className="font-medium">{nameOf("off", node.shooter ?? "")}</div>
-                      <div className="text-xs text-dim">
+                  <tr key={id}>
+                    <td className="py-2 pr-2">
+                      <div className="font-semibold">{nameOf("off", node.shooter ?? "")}</div>
+                      <div className="text-xs text-muted">
                         {ZONE_LABEL[s.zone]}, {node.creation === "dribble" ? "top sürerek" : "catch & shoot"}, savunan {nameOf("def", node.defender ?? node.shooter ?? "")}
                       </div>
                     </td>
-                    <td className="px-2 py-2.5 text-right">{pct(s.reach_rate, 0)}</td>
-                    <td className="px-2 py-2.5 text-right">{pct(s.p_contest, 0)}</td>
-                    <td className="px-2 py-2.5 text-right r-elite">{pct(s.p_make_open, 0)}</td>
-                    <td className="px-2 py-2.5 text-right r-low">{pct(s.p_make_contested, 0)}</td>
-                    <td className="px-2 py-2.5 text-right">{pct(s.p_foul, 0)}</td>
-                    <td className="px-4 py-2.5 text-right font-display text-lg font-bold">{s.ppp_when_reached?.toFixed(2) ?? "-"}</td>
+                    <td className="px-2 py-2 text-right">{pct(s.reach_rate, 0)}</td>
+                    <td className="px-2 py-2 text-right">{pct(s.p_contest, 0)}</td>
+                    <td className="px-2 py-2 text-right font-semibold r-elite">{pct(s.p_make_open, 0)}</td>
+                    <td className="px-2 py-2 text-right font-semibold r-low">{pct(s.p_make_contested, 0)}</td>
+                    <td className="px-2 py-2 text-right">{pct(s.p_foul, 0)}</td>
+                    <td className="py-2 pl-2 text-right num text-lg">{s.ppp_when_reached?.toFixed(2) ?? "-"}</td>
                   </tr>
                 );
               })}
@@ -325,27 +307,28 @@ function Results({ result, set, leaguePPP, nameOf }: {
       </section>
 
       {result.sensitivity && (
-        <section className="panel p-5">
-          <h3 className="font-display text-lg font-bold uppercase tracking-wide">Oyuncu katkısı</h3>
-          <p className="mb-4 text-xs text-dim">Oyuncunun yerine lig ortalaması bir oyuncu koysaydın PPP ne kadar değişirdi.</p>
-          <ul className="space-y-2 text-sm">
-            {result.sensitivity.map((s, i) => {
-              const w = Math.abs(s.ppp_contribution) / maxSens / 2;
-              const pos = s.ppp_contribution >= 0;
-              return (
-                <li key={s.slot} className="grid grid-cols-[minmax(8rem,12rem)_1fr_4rem] items-center gap-3">
-                  <span className="truncate"><span className="font-display font-bold text-accent">{s.slot}</span> {properName(s.player)}</span>
-                  <div className="relative h-2 rounded-full bg-bg-2">
-                    <span className="absolute inset-y-0 left-1/2 w-px bg-line-2" />
-                    <motion.span className={`absolute inset-y-0 rounded-full ${pos ? "left-1/2 origin-left fill-r-elite" : "right-1/2 origin-right fill-r-poor"}`}
-                      style={{ width: `${w * 100}%` }}
-                      initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.6, delay: 0.2 + i * 0.07, ease: EASE }} />
-                  </div>
-                  <span className={`text-right font-mono text-xs ${pos ? "r-elite" : "r-poor"}`}>{pos ? "+" : ""}{s.ppp_contribution.toFixed(3)}</span>
-                </li>
-              );
-            })}
-          </ul>
+        <section className="rule-t pt-4">
+          <h3 className="display t-sub">Oyuncu katkısı</h3>
+          <p className="mb-4 mt-1 text-xs text-muted">Oyuncunun yerine lig ortalaması bir oyuncu koysaydın PPP ne kadar değişirdi.</p>
+          <InView key={runId} amount={0.2}>
+            <ul className="space-y-2 text-sm">
+              {result.sensitivity.map((s, i) => {
+                const w = Math.abs(s.ppp_contribution) / maxSens / 2;
+                const pos = s.ppp_contribution >= 0;
+                return (
+                  <li key={s.slot} className="grid grid-cols-[minmax(7rem,12rem)_1fr_3.5rem] items-center gap-3">
+                    <span className="truncate"><span className="num mr-1 text-accent-text">{s.slot}</span> {properName(s.player)}</span>
+                    <div className="relative h-5">
+                      <span className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 bg-ink" />
+                      <span className={`grow-bar absolute inset-y-0.5 ${pos ? "left-1/2 heat-r-elite" : "right-1/2 heat-r-poor"}`}
+                        style={{ width: `${w * 100}%`, ["--o" as string]: pos ? "left" : "right", ["--i" as string]: i * 3 }} />
+                    </div>
+                    <span className={`text-right text-xs font-semibold ${pos ? "r-elite" : "r-poor"}`}>{pos ? "+" : ""}{s.ppp_contribution.toFixed(3)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </InView>
         </section>
       )}
 
@@ -359,9 +342,9 @@ function Results({ result, set, leaguePPP, nameOf }: {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="panel p-5">
-      <p className="text-sm text-muted">{label}</p>
-      <CountUp value={value} decimals={1} suffix="%" className="font-display text-5xl font-extrabold leading-none" />
+    <div>
+      <p className="mb-1 text-sm text-muted">{label}</p>
+      <Odo value={value} decimals={1} suffix="%" className="num text-5xl" />
     </div>
   );
 }
