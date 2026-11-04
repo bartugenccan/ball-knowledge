@@ -140,7 +140,7 @@ async function AttributeTable() {
                       {a.label}
                       {a.source !== "veri" && <span className="ml-1.5 text-[11px] font-medium text-muted">{SOURCE_LABEL[a.source]}</span>}
                     </dt>
-                    <dd className="mb-2 sm:mb-0">{a.description}</dd>
+                    <dd className="mb-2 sm:mb-0">{a.hint ? `${a.hint.how}${a.hint.note ? ` ${a.hint.note}` : ""}` : a.description}</dd>
                   </div>
                 ))}
             </dl>

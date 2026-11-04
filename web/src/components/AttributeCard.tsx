@@ -1,6 +1,7 @@
+import { AttributeHintCard } from "@/components/AttributeHintCard";
 import { InView } from "@/components/motion/InView";
 import { Ticks } from "@/components/Ticks";
-import { GROUP_LABEL, labelTone, SOURCE_HINT, SOURCE_LABEL, tone } from "@/lib/format";
+import { GROUP_LABEL, labelTone, SOURCE_LABEL, tone } from "@/lib/format";
 import type { AttributeMeta, Group, Rating } from "@/lib/types";
 
 const GROUPS: Group[] = ["hucum", "savunma", "zihinsel"];
@@ -27,13 +28,13 @@ export function AttributeCard({ attributes, ratings, compare }: { attributes: At
                 const delta = cmp && isNumber ? r.value - (cmp.get(a.key)?.value ?? r.value) : 0;
                 const hasRange = isNumber && r.lo !== undefined && r.hi !== undefined;
                 return (
-                  <li key={a.key}>
+                  <li key={a.key} className="hint">
                     <div className="mb-1 flex items-baseline gap-2 text-sm">
-                      <span className="flex-1 truncate font-medium" title={`${a.description}\n${SOURCE_HINT[a.source]}`}>
+                      <button type="button" className="hint-trigger flex-1 truncate text-left font-medium" aria-describedby={`hint-${a.key}`}>
                         {a.label}
                         {a.source === "tahmini" && <span className="ml-1.5 text-[11px] font-semibold text-accent-text">{SOURCE_LABEL[a.source]}</span>}
                         {a.source === "turetilmis" && <span className="ml-1.5 text-[11px] text-dim">türetilmiş</span>}
-                      </span>
+                      </button>
                       {r.low_data && isNumber && (
                         <span className="text-[11px] font-medium text-dim" title="Oyuncunun kendi verisi tahminin dörtte birinden az. Puan çoğunlukla beklentiden geliyor; liderlik listelerine girmez.">az veri</span>
                       )}
@@ -50,6 +51,7 @@ export function AttributeCard({ attributes, ratings, compare }: { attributes: At
                       )}
                     </div>
                     {isNumber && <Ticks value={r.value} row={i} />}
+                    <AttributeHintCard attribute={a} />
                   </li>
                 );
               })}

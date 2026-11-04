@@ -1,3 +1,4 @@
+import { AttributeHintCard } from "@/components/AttributeHintCard";
 import { InView } from "@/components/motion/InView";
 import { Ticks } from "@/components/Ticks";
 import { GROUP_LABEL, labelTone } from "@/lib/format";
@@ -24,24 +25,28 @@ export function CompareBars({ attributes, a, b }: { attributes: AttributeMeta[];
               if (tx !== String(x) || ty !== String(y)) {
                 // tiers and statements have no fine-grained number to compare
                 return (
-                  <li key={attr.key} className="flex items-baseline justify-between gap-3">
-                    <span className={`text-sm font-semibold ${labelTone(tx)}`}>{tx}</span>
-                    <span className="truncate text-center text-xs font-medium text-muted">{attr.label}</span>
-                    <span className={`text-right text-sm font-semibold ${labelTone(ty)}`}>{ty}</span>
+                  <li key={attr.key} className="hint">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className={`text-sm font-semibold ${labelTone(tx)}`}>{tx}</span>
+                      <button type="button" className="hint-trigger truncate text-center text-xs font-medium text-muted" aria-describedby={`hint-${attr.key}`}>{attr.label}</button>
+                      <span className={`text-right text-sm font-semibold ${labelTone(ty)}`}>{ty}</span>
+                    </div>
+                    <AttributeHintCard attribute={attr} />
                   </li>
                 );
               }
               return (
-                <li key={attr.key}>
+                <li key={attr.key} className="hint">
                   <div className="mb-1 flex items-baseline justify-between gap-3">
                     <span className="num w-8 text-2xl" style={{ color: x >= y ? "var(--side-a-t)" : "var(--dim)" }}>{x}</span>
-                    <span className="truncate text-center text-xs font-medium text-muted">{attr.label}</span>
+                    <button type="button" className="hint-trigger truncate text-center text-xs font-medium text-muted" aria-describedby={`hint-${attr.key}`}>{attr.label}</button>
                     <span className="num w-8 text-right text-2xl" style={{ color: y >= x ? "var(--side-b-t)" : "var(--dim)" }}>{y}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-1">
                     <Ticks value={x} row={row} color="var(--side-a)" rtl dim={x < y} />
                     <Ticks value={y} row={row} color="var(--side-b)" dim={y < x} />
                   </div>
+                  <AttributeHintCard attribute={attr} />
                 </li>
               );
             })}

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from bk.config import TABLES_DIR
-from bk.ratings.catalog import ATTR_BY_KEY, RATING_ATTRIBUTES, display_kind
+from bk.ratings.catalog import ATTR_BY_KEY, HINTS, RATING_ATTRIBUTES, display_kind
 from bk.ratings.metrics_v2 import display_value
 from bk.sim import profiles
 from bk.sim.engine import Context, SetSimulator
@@ -82,7 +82,7 @@ def meta():
     return {
         "seasons": seasons, "latest": seasons[0], "league_ppp": league_ppp(),
         "attributes": [{"key": a.key, "label": a.label, "group": a.group, "source": a.source,
-                        "description": a.description, "display": display_kind(a.key)} for a in RATING_ATTRIBUTES],
+                        "description": a.description, "display": display_kind(a.key), "hint": HINTS[a.key]} for a in RATING_ATTRIBUTES],
         "sim_params": SimParams.load().to_dict(),
     }
 

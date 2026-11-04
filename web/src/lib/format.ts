@@ -1,4 +1,4 @@
-import type { Group, Rating, Source } from "./types";
+import type { AttributeMeta, Group, Rating, Source } from "./types";
 
 export const GROUP_LABEL: Record<Group, string> = {
   hucum: "Hücum",
@@ -11,6 +11,11 @@ export const SOURCE_LABEL: Record<Source, string> = {
   turetilmis: "Türetilmiş",
   tahmini: "Tahmini",
 };
+
+/** The hint as plain text, for places that can only show a native tooltip (rotated table headers). */
+export function hintText(a: AttributeMeta): string {
+  return a.hint ? [a.hint.what, a.hint.how, a.hint.note].filter(Boolean).join("\n") : a.description;
+}
 
 export const SOURCE_HINT: Record<Source, string> = {
   veri: "Doğrudan maç istatistiklerinden hesaplanır.",
@@ -55,20 +60,20 @@ export function gameTone(v: number): string {
 }
 
 /** Radar axes: each is the mean of a few attributes. */
-export const RADAR_AXES: { label: string; keys: string[] }[] = [
-  { label: "Bitiricilik", keys: ["finishing", "drawing_fouls"] },
-  { label: "Dış şut", keys: ["three_point", "mid_range", "free_throw"] },
-  { label: "Oyun kurma", keys: ["passing", "ball_security", "shot_creation"] },
-  { label: "Ribaund", keys: ["off_rebounding", "def_rebounding"] },
-  { label: "Savunma", keys: ["steals", "shot_blocking", "rim_protection", "perimeter_defense", "team_defense", "discipline"] },
-  { label: "Yük & istikrar", keys: ["stamina", "consistency"] },
+export const RADAR_AXES: { label: string; note: string; keys: string[] }[] = [
+  { label: "Pota hücumu", note: "Bitiricilik ve Faul Alma ortalaması", keys: ["finishing", "drawing_fouls"] },
+  { label: "Dış şut", note: "Üçlük, Orta Mesafe ve Serbest Atış ortalaması", keys: ["three_point", "mid_range", "free_throw"] },
+  { label: "Oyun kurma", note: "Pas, Top Güvenliği ve Şut Yaratma ortalaması", keys: ["passing", "ball_security", "shot_creation"] },
+  { label: "Ribaund", note: "Hücum ve Savunma Ribaundu ortalaması", keys: ["off_rebounding", "def_rebounding"] },
+  { label: "Savunma", note: "Top Çalma, Blok, Pota Koruma, Çevre Savunması, Savunma Etkisi ve Faul Disiplini ortalaması", keys: ["steals", "shot_blocking", "rim_protection", "perimeter_defense", "team_defense", "discipline"] },
+  { label: "Yük & istikrar", note: "Oyun Yükü ve İstikrar ortalaması", keys: ["stamina", "consistency"] },
 ];
 
-export function radarValues(ratings: Rating[]): { label: string; value: number }[] {
+export function radarValues(ratings: Rating[]): { label: string; note: string; value: number }[] {
   const by = new Map(ratings.map((r) => [r.key, r.value]));
   return RADAR_AXES.map((a) => {
     const vals = a.keys.map((k) => by.get(k)).filter((v): v is number => v !== undefined);
-    return { label: a.label, value: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 10 };
+    return { label: a.label, note: a.note, value: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 10 };
   });
 }
 

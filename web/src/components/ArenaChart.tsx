@@ -3,7 +3,7 @@ import { heatVar } from "@/lib/format";
 const ROWS = 20;
 const AISLE = 5; // degrees between sections
 
-type Axis = { label: string; value: number };
+type Axis = { label: string; value: number; note?: string };
 
 const polar = (c: number, r: number, deg: number) => {
   const a = (deg * Math.PI) / 180;
@@ -74,6 +74,7 @@ export function ArenaChart({ values, compare, center, className = "" }: { values
         const w = compare?.[i];
         return (
           <g key={v.label} className="arena-sector">
+            {v.note && <title>{v.note}</title>}
             {w ? (
               <>
                 {seats("a", i, v.value, a0, mid - 1, "var(--side-a)")}

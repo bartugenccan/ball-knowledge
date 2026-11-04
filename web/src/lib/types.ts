@@ -8,6 +8,13 @@ export interface AttributeMeta {
   source: Source;
   description: string;
   display: "number" | "tier";
+  hint?: AttributeHint;
+}
+
+export interface AttributeHint {
+  what: string;
+  how: string;
+  note?: string;
 }
 
 export interface Meta {

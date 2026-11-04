@@ -4,7 +4,7 @@ import { MagnifyingGlass } from "@phosphor-icons/react";
 import Link from "next/link";
 import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clubVars } from "@/lib/clubs";
-import { GROUP_LABEL, shortLabel, tone } from "@/lib/format";
+import { GROUP_LABEL, hintText, shortLabel, tone } from "@/lib/format";
 import type { AttributeMeta, Group } from "@/lib/types";
 
 export type BoardRow = {
@@ -200,7 +200,7 @@ export function PlayersBoard({
               <SortTh label="DK/M" k="mpg" sort={sort} className="hidden w-14 sm:table-cell" onSort={onSort} />
               <SortTh label="GENEL" k="ovr" sort={sort} onSort={onSort} />
               {attrs.map((a) => (
-                <SortTh key={a.key} label={a.label} k={a.key} sort={sort} onSort={onSort} title={a.description} />
+                <SortTh key={a.key} label={a.label} k={a.key} sort={sort} onSort={onSort} title={hintText(a)} />
               ))}
             </tr>
           </thead>

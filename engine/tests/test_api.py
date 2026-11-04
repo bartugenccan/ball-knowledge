@@ -19,6 +19,7 @@ def test_meta_and_players(client):
     assert len(meta["attributes"]) == 18
     assert {a["key"]: a["display"] for a in meta["attributes"]}["mid_range"] == "tier"
     assert not {"clutch", "corner_three"} & {a["key"] for a in meta["attributes"]}
+    assert all(a["hint"]["what"] and a["hint"]["how"] for a in meta["attributes"])
     ps = client.get("/api/players", params={"limit": 5}).json()["players"]
     assert len(ps) == 5 and all(1 <= p["three_point"] <= 20 for p in ps)
 

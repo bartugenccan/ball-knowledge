@@ -5,7 +5,7 @@ import { Koreografi } from "@/components/motion/Koreografi";
 import { Skeleton } from "@/components/Skeleton";
 import { getMeta, getTeam } from "@/lib/api";
 import { clubVars } from "@/lib/clubs";
-import { GROUP_LABEL, overall, properName, seasonLabel, shortLabel, tone } from "@/lib/format";
+import { GROUP_LABEL, hintText, overall, properName, seasonLabel, shortLabel, tone } from "@/lib/format";
 import type { Group } from "@/lib/types";
 
 export async function generateMetadata({ params, searchParams }: PageProps<"/teams/[code]">): Promise<Metadata> {
@@ -49,7 +49,7 @@ async function TeamContent({ params, searchParams }: PageProps<"/teams/[code]">)
                 <th scope="col" className="hidden px-1 py-2 align-bottom sm:table-cell"><span className="th-rot">DK/M</span></th>
                 <th scope="col" className="px-0 py-2 align-bottom"><span className="th-rot">GENEL</span></th>
                 {attrs.map((a) => (
-                  <th key={a.key} scope="col" className="px-0 py-2 align-bottom" title={a.description}>
+                  <th key={a.key} scope="col" className="px-0 py-2 align-bottom" title={hintText(a)}>
                     <span className="th-rot">{a.label}</span>
                   </th>
                 ))}
