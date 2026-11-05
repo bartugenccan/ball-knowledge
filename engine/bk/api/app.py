@@ -5,12 +5,15 @@
 
 from __future__ import annotations
 
+import hmac
 import json
+import os
 from functools import lru_cache
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from bk.config import TABLES_DIR
@@ -25,6 +28,16 @@ from bk.team.style import STYLE_FILE
 
 app = FastAPI(title="Ball Knowledge API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def require_key(request: Request, call_next):
+    """Once deployed, only the site's own server may call the API. Without BK_API_KEY it stays open for local work."""
+    key = os.environ.get("BK_API_KEY")
+    if key and not hmac.compare_digest(request.headers.get("x-bk-key", "").encode(), key.encode()):
+        return JSONResponse({"detail": "unauthorized"}, status_code=401)
+    return await call_next(request)
+
 
 ATTR_KEYS = [a.key for a in RATING_ATTRIBUTES]
 LEADER_MIN_MPG = 10  # a good rate in a very small role does not make a league leader

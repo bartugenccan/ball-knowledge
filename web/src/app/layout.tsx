@@ -14,6 +14,8 @@ const body = Sofia_Sans({ variable: "--font-body", subsets: ["latin", "latin-ext
 export const metadata: Metadata = {
   title: { default: "Ball Knowledge", template: "%s | Ball Knowledge" },
   description: "EuroLeague oyuncuları için 1-20 özellik puanları, form takibi ve koçlar için set simülasyonu.",
+  // a private test: the data terms cover private use, so search engines stay out
+  robots: { index: false, follow: false },
 };
 
 // Runs before first paint so the page never flashes the wrong theme.

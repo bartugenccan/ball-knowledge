@@ -57,6 +57,20 @@ npm run dev                                    # http://localhost:3000, /api/* i
 
 Kaynak hız sınırı uyguluyor (~60 hızlı istekten sonra 429). İstemci 1,2 sn aralıkla istek atıyor; üç sezonu indirmek yaklaşık bir saat sürer. Yeni maçlar için aynı komutu tekrar çalıştırmak yeterli.
 
+## Yayın
+
+Site iki ücretsiz Vercel projesinde durur: `ball-knowledge-api` (FastAPI ve sunulan tablolar) ve `ball-knowledge-web` (Next.js, ortak şifreli). Veri GitHub'a gitmez, CLI ile yüklenir. Depoya gönderim otomatik yayın başlatmaz.
+
+```bash
+npx vercel login      # bir kez
+npm run deploy        # ikisini de yayınlar
+npm run deploy:api    # yalnızca veri ve motor
+```
+
+Ortam değişkenleri: API'de `BK_API_KEY`; web'de `API_URL`, `BK_API_KEY`, `SITE_PASSWORD`, `SITE_COOKIE_SECRET`. Yerelde bunlar tanımlı değilse site şifresiz, API anahtarsız çalışır.
+
+Maçlar oynandıkça sonuçları eklemek için `engine` içinde `bk.ingest E2026`, `bk.model.build`, `bk.ratings.build`, `bk.team.style`, `scripts/match/fixtures.py` zincirini çalıştırın, sonra `npm run deploy:api`. Web'i yeniden yayınlamak gerekmez.
+
 ## Kontroller
 
 ```bash

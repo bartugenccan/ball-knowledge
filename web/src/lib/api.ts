@@ -5,11 +5,12 @@ import type { FixturesOverview, MatchReport, StandingRow, TeamStyle } from "./ma
 import type { Meta, PlayerDetail, PlayerRow, RosterRow, TeamSummary } from "./types";
 
 const API_URL = process.env.API_URL ?? "http://127.0.0.1:8000";
+const API_HEADERS = process.env.BK_API_KEY ? { "x-bk-key": process.env.BK_API_KEY } : undefined;
 
 async function get<T>(path: string, params: Record<string, string | undefined> = {}): Promise<T> {
   const url = new URL(path, API_URL);
   for (const [k, v] of Object.entries(params)) if (v) url.searchParams.set(k, v);
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: API_HEADERS });
   if (res.status === 404) notFound();
   if (!res.ok) throw new Error(`API ${res.status} for ${url.pathname}`);
   return res.json() as Promise<T>;
@@ -29,7 +30,7 @@ export const getPlayer = cache((id: string, season?: string) =>
 export async function getTeamStyle(code: string, season?: string): Promise<TeamStyle | null> {
   const url = new URL(`/api/teams/${encodeURIComponent(code)}/style`, API_URL);
   if (season) url.searchParams.set("season", season);
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: API_HEADERS });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`API ${res.status} for ${url.pathname}`);
   return res.json() as Promise<TeamStyle>;

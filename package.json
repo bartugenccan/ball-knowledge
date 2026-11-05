@@ -3,7 +3,10 @@
   "private": true,
   "scripts": {
     "predev": "node scripts/setup.mjs",
-    "dev": "concurrently -k -n api,web -c cyan,magenta \"uv --directory engine run uvicorn bk.api.app:app --port 8000 --reload --reload-dir bk\" \"node scripts/wait-api.mjs && npm --prefix web run dev\""
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"uv --directory engine run uvicorn bk.api.app:app --port 8000 --reload --reload-dir bk\" \"node scripts/wait-api.mjs && npm --prefix web run dev\"",
+    "deploy": "node scripts/deploy.mjs all",
+    "deploy:api": "node scripts/deploy.mjs api",
+    "deploy:web": "node scripts/deploy.mjs web"
   },
   "devDependencies": {
     "concurrently": "^10.0.6"

@@ -14,6 +14,15 @@ def client():
     return TestClient(app)
 
 
+def test_key_guards_the_api_only_when_set(client, monkeypatch):
+    assert client.get("/api/sets").status_code == 200
+    monkeypatch.setenv("BK_API_KEY", "s3cret")
+    assert client.get("/api/sets").status_code == 401
+    assert client.get("/api/sets", headers={"x-bk-key": "wrong"}).status_code == 401
+    assert client.get("/docs").status_code == 401
+    assert client.get("/api/sets", headers={"x-bk-key": "s3cret"}).status_code == 200
+
+
 def test_meta_and_players(client):
     meta = client.get("/api/meta").json()
     assert len(meta["attributes"]) == 18
