@@ -20,6 +20,8 @@ from bk.sim import profiles
 from bk.sim.engine import Context, SetSimulator
 from bk.sim.library import LIBRARY
 from bk.sim.params import SimParams
+from bk.team.standings import regulation_scores, standings
+from bk.team.style import STYLE_FILE
 
 app = FastAPI(title="Ball Knowledge API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -201,6 +203,65 @@ def team(code: str, season: str | None = None):
     return {"season": season, "code": code, "name": team_names(season).get(code, code), "roster": roster}
 
 
+@lru_cache(maxsize=1)
+def team_styles() -> dict:
+    return json.loads(STYLE_FILE.read_text(encoding="utf-8")) if STYLE_FILE.exists() else {"seasons": {}}
+
+
+@app.get("/api/teams/{code}/style")
+def team_style(code: str, season: str | None = None):
+    season = season or latest_season()
+    data = team_styles()
+    style = data["seasons"].get(season, {}).get(code)
+    if style is None:
+        raise HTTPException(404, "no style data for this team and season")
+    return {"season": season, "groups": data["groups"], **style}
+
+
+@lru_cache(maxsize=1)
+def regulation() -> pd.DataFrame:
+    events = pd.read_parquet(TABLES_DIR / "events.parquet", columns=["season", "gamecode", "type", "team", "period"])
+    return regulation_scores(events, T()["games"])
+
+
+@app.get("/api/standings")
+def standings_table(season: str | None = None):
+    season = season or latest_season()
+    if season not in set(T()["games"].season):
+        raise HTTPException(404, "unknown season")
+    return {"season": season, "table": standings(T()["games"], season, regulation())}
+
+
+# ---- match simulation ---------------------------------------------------------------
+FIXTURES_DIR = TABLES_DIR / "match_fixtures"
+FIXTURES_FILE = TABLES_DIR / "match_fixtures.json"
+
+
+@lru_cache(maxsize=1)
+def fixtures_overview() -> dict:
+    if not FIXTURES_FILE.exists():
+        raise HTTPException(404, "fixtures not built (run scripts/match/fixtures.py)")
+    return json.loads(FIXTURES_FILE.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=24)
+def fixture_file(game_id: str) -> dict:
+    return json.loads((FIXTURES_DIR / f"{game_id}.json").read_text(encoding="utf-8"))
+
+
+@app.get("/api/match/fixtures")
+def match_fixtures():
+    return fixtures_overview()
+
+
+@app.get("/api/match/fixtures/{game_id}")
+def match_fixture(game_id: str):
+    # the id comes from the URL and names a file, so it must be one the overview lists
+    if game_id not in {g["id"] for g in fixtures_overview()["games"]}:
+        raise HTTPException(404, "unknown game")
+    return fixture_file(game_id)
+
+
 # ---- coach: sets & simulation -------------------------------------------------------
 @app.get("/api/sets")
 def sets():
@@ -248,6 +309,10 @@ def simulate(req: SimRequest):
 def reload_tables():
     T.cache_clear()
     league_ppp.cache_clear()
+    team_styles.cache_clear()
+    regulation.cache_clear()
+    fixtures_overview.cache_clear()
+    fixture_file.cache_clear()
     profiles.clear_cache()
     return {"ok": True}
 

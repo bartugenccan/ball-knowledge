@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Koreografi } from "@/components/motion/Koreografi";
 import { Skeleton } from "@/components/Skeleton";
-import { getMeta, getTeam } from "@/lib/api";
+import { TeamStyle } from "@/components/team/TeamStyle";
+import { getMeta, getTeam, getTeamStyle } from "@/lib/api";
 import { clubVars } from "@/lib/clubs";
 import { GROUP_LABEL, hintText, overall, properName, seasonLabel, shortLabel, tone } from "@/lib/format";
 import type { Group } from "@/lib/types";
@@ -27,7 +28,7 @@ async function TeamContent({ params, searchParams }: PageProps<"/teams/[code]">)
   const { code } = await params;
   const sp = await searchParams;
   const season = typeof sp.season === "string" ? sp.season : undefined;
-  const [meta, t] = await Promise.all([getMeta(), getTeam(code, season)]);
+  const [meta, t, style] = await Promise.all([getMeta(), getTeam(code, season), getTeamStyle(code, season)]);
   const groups = Object.keys(GROUP_LABEL) as Group[];
   const attrs = groups.flatMap((g) => meta.attributes.filter((a) => a.group === g));
   return (
@@ -88,6 +89,7 @@ async function TeamContent({ params, searchParams }: PageProps<"/teams/[code]">)
           </table>
         </div>
         <p className="text-xs text-dim">Soluk satırlar az süre alan oyunculardır, puanları düşük güvenlidir.</p>
+        {style && <TeamStyle style={style} attributes={meta.attributes} />}
       </div>
     </div>
   );

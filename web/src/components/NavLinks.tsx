@@ -7,6 +7,8 @@ import { useEffect } from "react";
 const NAV = [
   { href: "/players", label: "Oyuncular" },
   { href: "/teams", label: "Takımlar" },
+  { href: "/games", label: "Maçlar" },
+  { href: "/standings", label: "Puan Durumu" },
   { href: "/compare", label: "Karşılaştır" },
   { href: "/coach", label: "Koç Paneli" },
   { href: "/method", label: "Yöntem" },

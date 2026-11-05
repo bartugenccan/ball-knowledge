@@ -20,11 +20,14 @@ OFFICIAL_STATS = ["games", "pts", "fg2m", "fg2a", "fg3m", "fg3a", "ftm", "fta", 
 MAX_OFFICIAL_DIFF_CELLS = 40   # stat corrections after the game, out of about 15,000 cells
 MAX_OFFICIAL_DIFF_SIZE = 2
 MAX_NON_FIVE_LINEUPS = 2
+MAX_SCORE_ROWS_OFF = 15        # the feed writes a few scores one row early; 10 rows at the last count
 MIN_BLOCK_LINK_RATE = 0.99
 MIN_ROSTER_MINUTE_SHARE = 0.99
 LOW_VOLUME_MIN_MINUTES = 100
 LOW_VOLUME_INSIDE_FGA = 2.5  # per game
 LOW_VOLUME_MAX_FINISHING = 16
+LOW_VOLUME_THREES = 2.5     # attempts per game
+LOW_VOLUME_MAX_THREE = 15
 LOW_TOUCHES_PER_GAME = 6
 LOW_TOUCHES_MAX_BALL_SECURITY = 16
 MINUTES_TOLERANCE = 1.0
@@ -79,6 +82,14 @@ pp = po.groupby(KEY + ["offense"]).points.sum()
 pp.index.names = KEY + ["team"]
 check("possession points equal final score", (pp.reindex(g.index) == g).all())
 
+scored = ev[ev.type.isin(["2FGM", "3FGM", "FTM"])].sort_values(KEY + ["seq"]).merge(games[KEY + ["home"]], on=KEY)
+value = scored.type.map({"2FGM": 2, "3FGM": 3, "FTM": 1})
+keys = [scored[c] for c in KEY]
+home_total = value.where(scored.team == scored.home, 0).groupby(keys).cumsum()
+away_total = value.where(scored.team != scored.home, 0).groupby(keys).cumsum()
+off = (home_total != scored.home_score) | (away_total != scored.away_score)
+check("running score follows the baskets", off.sum() <= MAX_SCORE_ROWS_OFF, f"{int(off.sum())} of {len(off)} scoring rows off")
+
 # lineups and minutes ----------------------------------------------------------
 check("non-5 lineups stay flagged and rare", (~po.lineup_ok).sum() <= MAX_NON_FIVE_LINEUPS
       and ((po.off_lineup.map(len) != 5) | (po.def_lineup.map(len) != 5)).sum() == (~po.lineup_ok).sum(),
@@ -110,6 +121,11 @@ low = ratings.join(inside, on=["season", "player_id"]).fillna({"inside_fga": 0})
 low = low[(low.minutes >= LOW_VOLUME_MIN_MINUTES) & (low.inside_fga / low.games <= LOW_VOLUME_INSIDE_FGA)]
 check("low-volume finishers stay out of the top", (low.finishing <= LOW_VOLUME_MAX_FINISHING).all(),
       f"highest {int(low.finishing.max())} among {len(low)} player-seasons")
+threes = pg.groupby(["season", "player_id"]).agg(attempts=("fg3a", "sum")).reset_index()
+few = ratings.merge(threes, on=["season", "player_id"])
+few = few[(few.minutes >= LOW_VOLUME_MIN_MINUTES) & (few.attempts / few.games <= LOW_VOLUME_THREES) & ~few.three_non_shooter]
+check("low-volume three-point shooters stay out of the top", (few.three_point <= LOW_VOLUME_MAX_THREE).all(),
+      f"highest {int(few.three_point.max())} among {len(few)} player-seasons")
 touches = pg.groupby(["season", "player_id"])[["fg2a", "fg3a", "fta", "tov", "ast"]].sum()
 touches = (touches.fg2a + touches.fg3a + 0.44 * touches.fta + touches.tov + touches.ast).rename("touches")
 quiet = ratings.join(touches, on=["season", "player_id"]).fillna({"touches": 0})

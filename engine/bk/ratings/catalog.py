@@ -17,6 +17,7 @@ ATTR_BY_KEY = {a.key: a for a in RATING_ATTRIBUTES}
 
 PRIOR_K: dict[str, float] = {
     **{m: s.k for m, s in SPECS.items() if m not in INFO_METRICS},
+    "three_value": SPECS["three_pct"].k,  # as uncertain as the accuracy inside it
     **DEFENSE_K,
     **{m: s.k for m, s in MENTAL_SPECS.items()},
 }
@@ -37,8 +38,8 @@ HINTS: dict[str, dict[str, str]] = {
     },
     "three_point": {
         "what": "Üçlük tehdidi ne kadar büyük?",
-        "how": "Üçlük isabeti (%75) ve kullanma sıklığı (%25). Periyot sonu umut atışları sayılmaz. Üçlük yüzdesi yavaş oturduğu için önceki sezonlar ve serbest atış becerisi de hesaba girer.",
-        "note": "Bu yüzden bu sezonun yüzdesiyle puan birebir aynı sırada olmayabilir.",
+        "how": "Sıradan bir şutçuya göre üçlükten maç başına fazladan ürettiği sayı: 3 × maç başına deneme × (isabet − %32). Deneme ve isabet çarpıldığı için ikisi de tek başına yetmez. Periyot sonu umut atışları sayılmaz. Üçlük yüzdesi yavaş oturduğu için önceki sezonlar ve serbest atış becerisi de hesaba girer.",
+        "note": "Bu yüzden bu sezonun yüzdesiyle puan birebir aynı sırada olmayabilir. Az deneyen isabetli bir şutçu, çok deneyen isabetli bir şutçunun altında kalır.",
     },
     "free_throw": {
         "what": "Çizgide ne kadar güvenilir?",

@@ -181,8 +181,11 @@ def parse_game(season: str, gamecode: int, pbp: dict, points: dict, box: dict, m
             clock_left = c
         elapsed = period_start(period) + period_length(period) - clock_left
 
-        if r.get("POINTS_A") is not None and r.get("POINTS_B") is not None:
-            score[home], score[away] = int(r["POINTS_A"]), int(r["POINTS_B"])
+        # the feed leaves a side empty until that side has scored, so each one updates on its own
+        if r.get("POINTS_A") is not None:
+            score[home] = int(r["POINTS_A"])
+        if r.get("POINTS_B") is not None:
+            score[away] = int(r["POINTS_B"])
 
         # substitutions -------------------------------------------------------
         if ptype == "OUT" and pid:

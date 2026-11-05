@@ -15,6 +15,7 @@ const TOC = [
   ["orneklem", "Küçük örneklem"],
   ["olcek", "1-20 ölçeği"],
   ["ozellikler", "Özellikler"],
+  ["mac", "Stil ve maç"],
   ["eksikler", "Ölçülemeyenler"],
 ];
 
@@ -80,6 +81,27 @@ export default function MethodPage() {
         <Suspense fallback={<Skeleton className="h-64" />}>
           <AttributeTable />
         </Suspense>
+
+        <section id="mac" className="scroll-target space-y-4">
+          <h2 className={H2}>Takım stili ve maç simülasyonu</h2>
+          <p>
+            <strong>Takım stili</strong>, play-by-play&apos;den sayılan eğilimlerdir: hücum süresi, geçiş payı, şut dağılımı, rotasyon. Her eğilim için bir takımın ilk 10 maçının
+            sezonun geri kalanını ne kadar öngördüğü ölçüldü. 0,60&apos;ın altında kalanlar gösterilir ama yorum cümlesine girmez ve &quot;dalgalı&quot; diye işaretlenir.
+          </p>
+          <p>
+            <strong>Maç simülasyonu</strong> bir maçı hücum hücum oynatır. Saat, skor, takım ve oyuncu faulleri, kim ne kadar süredir sahada, hepsi takip edilir. Şutu kimin atacağı, nereden
+            atacağı, girip girmeyeceği, ribaund, top kaybı ve faul oyuncu puanlarının arkasındaki aynı küçültülmüş oranlardan gelir. 1-20 sayısı doğrudan olasılığa girmez,
+            çünkü sıra tabanlı ölçek gürültülü özelliklerde farkı abartır.
+          </p>
+          <p>
+            Takımdan gelenler tempo, geçiş, rakibe bırakılan şut dağılımı ve küçük bir şut isabeti kalıntısıdır. Rotasyon, koçun o güne kadarki dakika dağılımından kurulur; ilk beş, faul sıkıntısı ve fark açılan
+            maçlarda kenara alınma buna eklenir. Ölçülen bir etki de var: fark beklenenin üstüne çıkınca önde olan takım geriler, geride olan toparlanır. Bu etki olmadan simülasyonlardaki skor farkları gerçeğe göre fazla dağınık çıkıyordu.
+          </p>
+          <p>
+            Bir maç, yalnızca o maçtan önceki verilerle oynatılır. Ayarlar 2025-26 sezonunda ve 2026-27&apos;nin ilk 9 haftasında yapıldı, her değişiklik önceden yazılmış bir kuralla ayrı ayrı denendi. Gerçek sınav, sonraki haftalarda maçtan önce kilitlenen tahminlerdir. Sayfada binlerce oyun arasından en tipik olanı, olay olay gösterilir;
+            aralıklar ise aynı oyunlardan gelir. &quot;Oyuncu olmasaydı ne olurdu?&quot; sorusu şimdilik yanıtlanmıyor: model, yıldız çıkınca şutların diğerlerine verim kaybı olmadan geçtiğini varsayıyor, bu da sonucu yanıltıcı kılıyor.
+          </p>
+        </section>
 
         <section id="eksikler" className="scroll-target space-y-4">
           <h2 className={H2}>Veride olmayanlar ve ölçülemeyenler</h2>

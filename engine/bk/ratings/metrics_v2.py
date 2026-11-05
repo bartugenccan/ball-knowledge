@@ -28,6 +28,9 @@ NON_SHOOTER_ATTEMPTS = 30   # with past seasons, and
 NON_SHOOTER_RATE = 1.0      # attempts per 100 own possessions in this window
 MID_NON_SHOOTER_PER_GAME = 0.5
 FT_SKILL_PRIOR = 40.0       # free-throw skill used inside other priors
+THREE_BASE_PCT = 0.32       # the three-point rating counts points above a shooter this good. The audit in
+                            # scripts/audit/three_value.py compares this with other bases and with a plain weighting
+THREE_ATTEMPT_PRIOR_GAMES = 2.0  # made-up games at his usual volume, so one hot night does not move the rating
 
 
 @dataclass(frozen=True)
@@ -75,6 +78,9 @@ SPECS: dict[str, Spec] = {
     "opp_three_pct": Spec("prop", 2000),  # defenders barely control this, hence the very strong prior
 }
 
+# Built from other metrics rather than counted directly.
+DERIVED_METRICS = ("three_value",)
+
 # Shown as Low / Medium / High, not 1-20: the data cannot support finer steps.
 TIER_ATTRIBUTES = {"mid_range", "perimeter_defense"}
 CONSISTENCY_MIN_GAMES = 20  # game-to-game swing cannot be judged from fewer games, whatever the correction
@@ -102,8 +108,8 @@ ATTRIBUTES_V2: tuple[Attribute, ...] = (
               "Asistsiz sayı / 100 hücum; putback ve umut atışı hariç"),
     Attribute("passing", "Pas", "hucum", "turetilmis", (("ast_share", .6, 1), ("created_rate", .4, 1)),
               "Asist payı ve asistle yaratılan sayı / 100 hücum"),
-    Attribute("three_point", "Üçlük", "hucum", "turetilmis", (("three_pct", .75, 1), ("three_rate", .25, 1)),
-              "Üçlük isabeti ve denemesi / 100 hücum; umut atışı hariç"),
+    Attribute("three_point", "Üçlük", "hucum", "turetilmis", (("three_value", 1, 1),),
+              "Sıradan bir şutçuya göre üçlükten maç başına fazladan üretilen sayı: 3 × deneme × (isabet − %32); umut atışı hariç"),
     Attribute("mid_range", "Orta Mesafe", "hucum", "turetilmis", (("mid_pct", .8, 1), ("mid_rate", .2, 1)),
               "Orta mesafe isabeti ve denemesi / 100 hücum"),
     Attribute("finishing", "Bitiricilik", "hucum", "turetilmis",
@@ -380,8 +386,32 @@ def season_metrics(t: Tables, specs: dict[str, Spec] = SPECS, reference_seasons=
         m["three_non_shooter"] = (m["n_three_pct"] < NON_SHOOTER_ATTEMPTS) & (raw_rate < NON_SHOOTER_RATE)
         mid_attempts = ctx.counts[season]["mid_rate"][0].reindex(m.index).fillna(0)
         m["mid_non_shooter"] = (m["n_mid_pct"] < NON_SHOOTER_ATTEMPTS) & (mid_attempts / m.games <= MID_NON_SHOOTER_PER_GAME)
-        frames.append(m.reset_index())
+        past_attempts = ctx.counts[ctx.seasons[i - 1]]["three_rate"][0] if i else pd.Series(dtype=float)
+        past_games = ctx.windows[ctx.seasons[i - 1]].player_games.groupby("player_id").gamecode.nunique() if i else pd.Series(dtype=float)
+        frames.append(add_three_value(m, s, past_attempts / past_games).reset_index())
     return pd.concat(frames, ignore_index=True)
+
+
+def add_three_value(m: pd.DataFrame, attempts: pd.Series, usual_per_game: pd.Series) -> pd.DataFrame:
+    """Points per game above a base shooter on his attempts: 3 x attempts x (make rate - base).
+
+    Attempts and accuracy multiply, so neither carries a rating alone: a few accurate attempts add
+    little, and many attempts add little at a middling rate. Attempts stay close to what he really
+    shoots: a volume estimate that drifts toward his role would lift exactly the low-volume players
+    this rating should hold back. The small pull only stops one hot game from moving it.
+    """
+    made_up = THREE_ATTEMPT_PRIOR_GAMES
+    usual = usual_per_game.reindex(m.index)
+    usual = usual.fillna(float(usual.mean()) if usual.notna().any() else 0.0)
+    total = attempts.reindex(m.index).fillna(0.0).astype(float)
+    per_game = (total + made_up * usual) / (m.games + made_up)
+    above = m.three_pct - THREE_BASE_PCT
+    se_attempts = np.sqrt(per_game.clip(lower=0) / (m.games + made_up))
+    m["three_attempts_game"] = per_game
+    m["three_value"] = 3 * per_game * above
+    m["n_three_value"] = m.n_three_pct
+    m["se_three_value"] = 3 * np.sqrt((per_game * m.se_three_pct) ** 2 + (above * se_attempts) ** 2)
+    return m
 
 
 def months_of(pg: pd.DataFrame) -> pd.Series:
@@ -427,7 +457,9 @@ def month_metrics(t: Tables, specs: dict[str, Spec] = SPECS, reference_seasons=R
                 m[metric] = spec.scale * (theta - month_level + ctx.base[metric])
                 m[f"n_{metric}"] = total
                 m[f"se_{metric}"] = spec.scale * se
-            frames.append(m.reset_index())
+            earlier_attempts = earlier["three_rate"][0] if earlier else pd.Series(dtype=float)
+            earlier_games = t.window(season, before).player_games.groupby("player_id").gamecode.nunique() if earlier else pd.Series(dtype=float)
+            frames.append(add_three_value(m, current["three_rate"][0], earlier_attempts / earlier_games).reset_index())
             before |= games
     return pd.concat(frames, ignore_index=True)
 
@@ -456,6 +488,8 @@ def score_frames(metrics: pd.DataFrame, attributes=ATTRIBUTES_V2, specs: dict[st
 
     reference = fixed_reference(metrics)
     prior_k = {m: sp.k for m, sp in specs.items() if m not in INFO_METRICS}
+    if "three_pct" in specs:
+        prior_k["three_value"] = specs["three_pct"].k
     frames = [score_fixed(g.set_index("player_id"), reference, attributes, prior_k).assign(season=season).reset_index()
               for season, g in metrics.groupby("season")]
     return pd.concat(frames, ignore_index=True)

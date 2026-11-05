@@ -209,6 +209,19 @@ def test_role_offset_is_zero_for_unknown_players():
     assert offset["p0"] == 0
 
 
+def test_three_value_needs_both_attempts_and_accuracy():
+    from bk.ratings.metrics_v2 import THREE_BASE_PCT, add_three_value
+    m = pd.DataFrame({"three_pct": [0.45, 0.45, 0.33, THREE_BASE_PCT], "games": [10, 10, 10, 10], "n_three_pct": [100.0] * 4, "se_three_pct": [0.02] * 4},
+                     index=["few_good", "many_good", "many_plain", "at_base"])
+    attempts = pd.Series([20.0, 70.0, 70.0, 70.0], index=m.index)
+    out = add_three_value(m, attempts, pd.Series(dtype=float))
+    assert out.three_value["many_good"] > out.three_value["few_good"] > out.three_value["many_plain"] > 0
+    assert out.three_value["at_base"] == pytest.approx(0)
+    # one hot game moves the volume less than the raw average would
+    hot = add_three_value(m.assign(games=1), pd.Series(12.0, index=m.index), pd.Series(2.0, index=m.index))
+    assert hot.three_attempts_game.iloc[0] < 12
+
+
 def test_three_point_counts_leave_out_heaves_only(c):
     # h1: one made three, one heave. A three with a bad coordinate would still count (see below).
     assert rate(c, "three_pct", "h1") == (1, 1)
@@ -355,12 +368,12 @@ def test_corner_three_is_information_only():
 
 
 def test_every_attribute_has_a_specified_metric():
-    from bk.ratings.metrics_v2 import ATTRIBUTES_V2
+    from bk.ratings.metrics_v2 import ATTRIBUTES_V2, DERIVED_METRICS
 
     for a in ATTRIBUTES_V2:
         assert abs(sum(w for _, w, _ in a.components) - 1) < 1e-9, a.key
         for metric, _, _ in a.components:
-            assert metric in SPECS, metric
+            assert metric in SPECS or metric in DERIVED_METRICS, metric
 
 
 def test_score_frames_flags_low_data_by_prior_strength():

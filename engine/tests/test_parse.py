@@ -17,7 +17,7 @@ def box_player(pid, team, starter, minutes="05:00", **kw):
     return base
 
 
-def make_game():
+def make_game(away_before_scoring=0):
     home = [f"H{i}" for i in range(1, 7)]
     away = [f"A{i}" for i in range(1, 6)]
     box = {"Stats": [
@@ -26,7 +26,7 @@ def make_game():
     ]}
     q1 = [
         ev(1, "BP", "", "", ""),
-        ev(2, "3FGM", "HOM", "H1", "09:40", 3, 0),   # assisted three by H1
+        ev(2, "3FGM", "HOM", "H1", "09:40", 3, away_before_scoring),   # assisted three by H1
         ev(3, "AS", "HOM", "H2", "09:40"),
         ev(4, "2FGA", "AWY", "A1", "09:20"),
         ev(5, "O", "AWY", "A5", "09:18"),           # offensive rebound keeps the possession
@@ -45,6 +45,15 @@ def make_game():
                        {"NUM_ANOT": 6, "COORD_X": 10, "COORD_Y": 20, "ZONE": "A", "FASTBREAK": "0",
                         "SECOND_CHANCE": "1", "POINTS_OFF_TURNOVER": "0"}]}
     return parse_game("E2099", 1, pbp, points, box, {"utcDate": "2099-10-01T18:00:00Z"})
+
+
+def test_score_counts_while_the_other_side_has_not_scored():
+    # the feed sends POINTS_B as None until the away side scores
+    t = make_game(away_before_scoring=None)
+    assert t.shots[0]["margin_before"] == 0
+    assert t.shots[2]["margin_before"] == -3
+    first = next(e for e in t.events if e["type"] == "3FGM")
+    assert (first["home_score"], first["away_score"]) == (3, 0)
 
 
 def test_shots_assists_and_context():

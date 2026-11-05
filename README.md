@@ -1,10 +1,10 @@
 # Ball Knowledge
 
-EuroLeague oyuncuları için 1–20 ölçeğinde özellik puanları, maç ve aylık form takibi, ve koçlar için set simülatörü. Ticari olmayan bir prototip.
+EuroLeague oyuncuları için 1–20 ölçeğinde özellik puanları, maç ve aylık form takibi, takımların oyun stili, hücum hücum maç simülasyonu ve koçlar için set simülatörü. Ticari olmayan bir prototip.
 
 ```
-engine/   Python: veri çekme, tablolar, puanlama, simülatör, FastAPI
-web/      Next.js 16: arayüz (oyuncular, takımlar, karşılaştırma, koç paneli, yöntem)
+engine/   Python: veri çekme, tablolar, puanlama, simülatörler, takım stili, FastAPI
+web/      Next.js 16: arayüz (oyuncular, takımlar, maçlar, karşılaştırma, koç paneli, yöntem)
 scripts/  npm run dev için kurulum kontrolü ve başlatma yardımcıları
 data/     raw/ (ham JSON önbelleği) ve tables/ (Parquet), git'e girmez
 ```
@@ -42,6 +42,12 @@ uv run python -m bk.ingest E2024 E2025 E2026   # ham veriyi indirir; önbellekte
 uv run python -m bk.model.build                # olaylar, şutlar, possession'lar, stint'ler
 uv run python -m bk.ratings.build              # sezon, ay ve maç puanları
 uv run python -m bk.sim.calibrate              # simülatör parametreleri (yorgunluk, clutch, ORB...)
+uv run python scripts/audit/team_style_reliability.py   # hangi takım eğilimi gerçek? (E2024-E2025)
+uv run python -m bk.team.style                 # takım sayfasındaki oyun stili
+uv run python -m bk.match.calibrate            # maç simülasyonu lig sabitleri (E2024-E2025)
+uv run python scripts/match/scorecard.py --rebuild     # tüm maçların karnesi (E2025 ve E2026)
+uv run python scripts/match/misses.py          # büyük ıskaların maç maç incelemesi
+uv run python scripts/match/fixtures.py        # gelecek maçların raporları ve kilitli tahminler
 uv run uvicorn bk.api.app:app --port 8000
 
 cd ../web
@@ -70,6 +76,21 @@ uv run python scripts/audit/position_cards.py # mevki kartları: ham istatistik 
 uv run python -m bk.ratings.legacy_build   # denetim karşılaştırmaları için eski yöntemin tabloları (*_v1); ürün bunları okumaz
 uv run python scripts/backtest.py E2025  # küçük örneklem düzeltmesi tahmin gücü
 ```
+
+## Maç simülasyonu
+
+Kod `engine/bk/match/` içinde. Ayarlar `Tuning` sınıfında (`sim.py`). E2025 ve E2026'nın ilk 9 haftasında seçildi, her değişiklik önceden yazılmış bir kuralla tek tek denendi. Yeni sınav, 10. haftadan sonra oynanan maçlar: tahminler maçtan önce kilitlenir ve `data/audit/match_predictions.csv` dosyasına eklenir.
+
+- `data/audit/match_scorecard.md`, `match_scorecard_likely.md`: tüm maçlar, bilinen ve tahmini kadroyla
+- `data/audit/match_misses.md`: büyük ıskalar tek tek, maçtan önce işaret var mıydı
+- `data/audit/match_candidates.md`, `match_candidate_signals.md`: denenen her fikir, tutulan ve elenen
+- `data/audit/match_story_card.md`: maçı kim bitiriyor, takım kendisi gibi mi oynuyor
+- `data/audit/match_claim_card.md`: maç önü iddialarının tutma oranı, metnin dili buna göre
+- `data/audit/match_rating_overlap.md`: simüle edilen oyuncular puanlarıyla örtüşüyor mu
+- `data/audit/team_style_reliability.md`: hangi takım eğilimi cümle hakkı kazanıyor
+- `scripts/match/score_effects.py`: skorun oyuna etkisinin ölçümü
+
+Simülasyon kazanan tahmininde basit takım net reytingiyle başa baş: asıl katkısı maçın akışı ve oyuncu rakamları. Oyuncu çıkarıldığında şutlar diğerlerine verim kaybı olmadan geçtiği için "oyuncu olmasaydı" sorusu yanıtlanmaz.
 
 ## Veri ve sınırlar
 
